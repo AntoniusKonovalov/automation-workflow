@@ -3,7 +3,13 @@
     "allow": [
       "Bash(python:*)",
       "Bash(dir:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "mcp__openai-docs__search_openai_docs",
+      "Bash(node:*)",
+      "WebSearch",
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:cookbook.openai.com)",
+      "Bash(npx @modelcontextprotocol/inspector:*)"
     ],
     "deny": [],
     "ask": []

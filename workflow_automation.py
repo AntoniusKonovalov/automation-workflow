@@ -881,16 +881,17 @@ class WorkflowAutomator:
     def perform_openai_analysis(self, content):
         """Perform OpenAI analysis in background thread"""
         try:
+            from openai import OpenAI
+            
             self.status_var.set("Analyzing with ChatGPT...")
-
-            headers = {
-                'Authorization': f'Bearer {self.openai_api_key}',
-                'Content-Type': 'application/json'
-            }
-
-            data = {
-                'model': 'gpt-3.5-turbo',
-                'messages': [
+            
+            # Initialize OpenAI client with API key from environment
+            client = OpenAI(api_key=self.openai_api_key)
+            
+            # Create chat completion using the modern OpenAI client
+            response = client.chat.completions.create(
+                model='gpt-3.5-turbo',
+                messages=[
                     {
                         'role': 'system',
                         'content': 'You are a code analysis assistant. Analyze the provided code files and give insights about their functionality, potential issues, patterns, and suggestions for improvement. Focus on the relationships between files and overall code quality.'
@@ -900,23 +901,15 @@ class WorkflowAutomator:
                         'content': f'Please analyze these changed files:\n\n{content}'
                     }
                 ],
-                'max_tokens': 2000,
-                'temperature': 0.7
-            }
+                max_tokens=2000,
+                temperature=0.7
+            )
+            
+            # Extract the response content
+            analysis = response.choices[0].message.content
 
-            response = requests.post('https://api.openai.com/v1/chat/completions',
-                                     headers=headers, json=data, timeout=60)
-
-            if response.status_code == 200:
-                result = response.json()
-                analysis = result['choices'][0]['message']['content']
-
-                # Update UI in main thread
-                self.root.after(0, self.display_analysis, analysis)
-            else:
-                error_msg = f"API Error: {response.status_code} - {response.text}"
-                self.root.after(
-                    0, lambda: messagebox.showerror("Error", error_msg))
+            # Update UI in main thread
+            self.root.after(0, self.display_analysis, analysis)
 
         except Exception as e:
             self.root.after(0, lambda: messagebox.showerror(

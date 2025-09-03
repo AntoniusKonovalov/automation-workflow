@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.5",
+    "fast-xml-parser": "^5.2.5",
+    "linkedom": "^0.18.12",
+    "undici": "^7.15.0",
+    "zod": "^3.25.76"
+  }
+}
