@@ -49,6 +49,10 @@ class WorkflowAutomator:
         self.chat_history = []  # Store chat conversation history
         self.response_frames = []  # Store response frame references for copy functionality
         
+        # Status variable for internal tracking (no visible status bar)
+        self.status_var = tk.StringVar()
+        self.status_var.set("Ready")
+        
         # Determine which API to use based on available keys
         self.preferred_api = self.determine_preferred_api()
 
@@ -573,6 +577,13 @@ class WorkflowAutomator:
         orchestrator_btn_frame = ttk.Frame(self.orchestrator_frame, style='TFrame')
         orchestrator_btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
         
+        # Automated checkbox for orchestrator
+        self.orchestrator_automated_var = tk.BooleanVar()
+        orchestrator_auto_cb = ttk.Checkbutton(orchestrator_btn_frame, text="Automated",
+                                              variable=self.orchestrator_automated_var,
+                                              style='TCheckbutton')
+        orchestrator_auto_cb.pack(side=tk.LEFT, padx=(0, 10))
+        
         if self.preferred_api == 'anthropic':
             orch_send_text = "Send to Claude"
         elif self.preferred_api == 'openai':
@@ -630,6 +641,13 @@ Instructions for the orchestrator:
         # Add Send button for regular prompt
         prompt_btn_frame = ttk.Frame(self.prompt_frame, style='TFrame')
         prompt_btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        # Automated checkbox for regular prompt
+        self.prompt_automated_var = tk.BooleanVar()
+        prompt_auto_cb = ttk.Checkbutton(prompt_btn_frame, text="Automated",
+                                        variable=self.prompt_automated_var,
+                                        style='TCheckbutton')
+        prompt_auto_cb.pack(side=tk.LEFT, padx=(0, 10))
         
         if self.preferred_api == 'anthropic':
             prompt_send_text = "Send to Claude"
@@ -1302,16 +1320,18 @@ Instructions for the orchestrator:
         # Get the specific prompt based on type
         if prompt_type == 'orchestrator':
             custom_prompt = self.orchestrator_text.get('1.0', tk.END).strip()
+            automated = self.orchestrator_automated_var.get()
         else:  # prompt_type == 'prompt'
             custom_prompt = self.prompt_text.get('1.0', tk.END).strip()
+            automated = self.prompt_automated_var.get()
 
         # Run analysis in separate thread
         if self.preferred_api == 'anthropic':
             threading.Thread(target=self.perform_anthropic_analysis,
-                           args=(content, custom_prompt, prompt_type), daemon=True).start()
+                           args=(content, custom_prompt, prompt_type, automated), daemon=True).start()
         elif self.preferred_api == 'openai':
             threading.Thread(target=self.perform_openai_analysis,
-                           args=(content, custom_prompt, prompt_type), daemon=True).start()
+                           args=(content, custom_prompt, prompt_type, automated), daemon=True).start()
     
     def send_to_ai(self):
         """Send selected files to AI for analysis (supports both OpenAI and Anthropic)"""
@@ -1337,7 +1357,7 @@ Instructions for the orchestrator:
             threading.Thread(target=self.perform_openai_analysis,
                            args=(content,), daemon=True).start()
 
-    def perform_anthropic_analysis(self, content, custom_prompt=None, prompt_type="prompt"):
+    def perform_anthropic_analysis(self, content, custom_prompt=None, prompt_type="prompt", automated=False):
         """Perform Claude analysis in background thread"""
         try:
             import anthropic
@@ -1377,7 +1397,7 @@ Instructions for the orchestrator:
             analysis = message.content[0].text
             
             # Update UI in main thread with prompt information
-            self.root.after(0, lambda: self.display_analysis(analysis, prompt_type, custom_prompt))
+            self.root.after(0, lambda: self.display_analysis(analysis, prompt_type, custom_prompt, automated))
             
         except Exception as e:
             print(f"Claude API Error: {e}")  # Debug logging
@@ -1403,7 +1423,7 @@ Instructions for the orchestrator:
         finally:
             self.root.after(0, lambda: self.status_var.set("Ready"))
 
-    def perform_openai_analysis(self, content, custom_prompt=None, prompt_type="prompt"):
+    def perform_openai_analysis(self, content, custom_prompt=None, prompt_type="prompt", automated=False):
         """Perform OpenAI analysis in background thread"""
         try:
             from openai import OpenAI
@@ -1455,7 +1475,7 @@ Instructions for the orchestrator:
             analysis = response.choices[0].message.content
 
             # Update UI in main thread with prompt information
-            self.root.after(0, lambda: self.display_analysis(analysis, prompt_type, custom_prompt))
+            self.root.after(0, lambda: self.display_analysis(analysis, prompt_type, custom_prompt, automated))
 
         except Exception as e:
             print(f"OpenAI API Error: {e}")  # Debug logging
@@ -1552,7 +1572,7 @@ Instructions for the orchestrator:
         self.analysis_text.delete(1.0, tk.END)
         self.status_var.set("Chat history cleared")
     
-    def display_analysis(self, analysis, prompt_type="AI", prompt_text=""):
+    def display_analysis(self, analysis, prompt_type="AI", prompt_text="", automated=False):
         """Display AI analysis result in continuous chat format"""
         # Don't clear - append to existing content
         
@@ -1616,8 +1636,60 @@ Instructions for the orchestrator:
         # Auto-scroll to bottom
         self.analysis_text.see(tk.END)
         
+        # Handle automation if checkbox was checked
+        if automated:
+            self.copy_analysis_to_claude_terminal(analysis)
+        
         # Update status
         self.status_var.set("Analysis complete")
+    
+    def copy_analysis_to_claude_terminal(self, analysis):
+        """Copy the AI analysis instructions to Claude Code terminal for automated execution"""
+        try:
+            import pyperclip
+            import subprocess
+            import os
+            
+            # Copy the analysis to clipboard
+            pyperclip.copy(analysis)
+            
+            # Get the project path
+            project_path = self.path_var.get()
+            if not project_path or not os.path.exists(project_path):
+                self.status_var.set("❌ Invalid project path - cannot automate")
+                return
+            
+            # Try to focus Claude Code terminal if running
+            # This is a basic implementation - may need adjustment based on system
+            try:
+                # On Windows, try to find and focus Claude Code window
+                if os.name == 'nt':
+                    # Use PowerShell to find and focus Claude Code window
+                    powershell_cmd = '''
+                    Add-Type -AssemblyName Microsoft.VisualBasic
+                    $windows = Get-Process | Where-Object {$_.MainWindowTitle -like "*Claude Code*" -or $_.ProcessName -like "*claude*"}
+                    if ($windows) {
+                        $windows | ForEach-Object { [Microsoft.VisualBasic.Interaction]::AppActivate($_.Id) }
+                    }
+                    '''
+                    subprocess.run(["powershell", "-Command", powershell_cmd], shell=True, capture_output=True)
+                
+                # Update status to inform user
+                self.status_var.set("📋 Instructions copied to clipboard - Switch to Claude Code terminal and paste")
+                
+                # Show a brief notification
+                self.root.after(5000, lambda: self.status_var.set("Ready") if "copied to clipboard" in self.status_var.get() else None)
+                
+            except Exception as e:
+                print(f"Window focus error: {e}")
+                self.status_var.set("📋 Instructions copied to clipboard - Manually switch to Claude Code terminal")
+        
+        except ImportError:
+            # If pyperclip is not available, show instructions to user
+            self.status_var.set("⚠️ Install pyperclip for automation: pip install pyperclip")
+        except Exception as e:
+            print(f"Automation error: {e}")
+            self.status_var.set("❌ Automation failed - check console for details")
     
     def toggle_selected_size(self):
         """Toggle between compact and expanded view for Selected section"""
