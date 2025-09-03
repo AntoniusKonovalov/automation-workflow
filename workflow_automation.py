@@ -43,6 +43,8 @@ class WorkflowAutomator:
         self.prompt_expanded = False  # Track prompt section state
         self.orchestrator_expanded = False  # Track orchestrator prompt section state
         self.selected_expanded = False  # Track selected section expanded state
+        self.chat_history = []  # Store chat conversation history
+        self.response_frames = []  # Store response frame references for copy functionality
         
         # Determine which API to use based on available keys
         self.preferred_api = self.determine_preferred_api()
@@ -334,6 +336,9 @@ class WorkflowAutomator:
         self.toggle_prompt_btn = ttk.Button(analysis_buttons, text="Prompt ▼",
                    command=self.toggle_prompt_section)
         self.toggle_prompt_btn.pack(side=tk.LEFT, padx=2)
+        
+        ttk.Button(analysis_buttons, text="Clear Chat",
+                   command=self.clear_chat_history).pack(side=tk.LEFT, padx=2)
 
         # Collapsible orchestrator section (hidden by default)
         self.orchestrator_frame = ttk.Frame(analysis_container)
@@ -1044,10 +1049,10 @@ Instructions for the orchestrator:
         # Run analysis in separate thread
         if self.preferred_api == 'anthropic':
             threading.Thread(target=self.perform_anthropic_analysis,
-                           args=(content, custom_prompt), daemon=True).start()
+                           args=(content, custom_prompt, prompt_type), daemon=True).start()
         elif self.preferred_api == 'openai':
             threading.Thread(target=self.perform_openai_analysis,
-                           args=(content, custom_prompt), daemon=True).start()
+                           args=(content, custom_prompt, prompt_type), daemon=True).start()
     
     def send_to_ai(self):
         """Send selected files to AI for analysis (supports both OpenAI and Anthropic)"""
@@ -1073,15 +1078,19 @@ Instructions for the orchestrator:
             threading.Thread(target=self.perform_openai_analysis,
                            args=(content,), daemon=True).start()
 
-    def perform_anthropic_analysis(self, content, custom_prompt=None):
+    def perform_anthropic_analysis(self, content, custom_prompt=None, prompt_type="prompt"):
         """Perform Claude analysis in background thread"""
         try:
             import anthropic
             
             self.status_var.set("Analyzing with Claude...")
-            # Show progress in analysis window
-            self.root.after(0, lambda: self.analysis_text.delete(1.0, tk.END))
-            self.root.after(0, lambda: self.analysis_text.insert(1.0, "Processing request with Claude...\n"))
+            # Show progress in analysis window only if it's empty or has previous content
+            current = self.analysis_text.get(1.0, tk.END).strip()
+            if not current or not current.startswith("Processing"):
+                # Append processing message instead of clearing
+                if current:
+                    self.root.after(0, lambda: self.analysis_text.insert(tk.END, "\n\n"))
+                self.root.after(0, lambda: self.analysis_text.insert(tk.END, "Processing request with Claude...\n"))
             
             # Use provided prompt or get default
             if custom_prompt is None:
@@ -1108,8 +1117,8 @@ Instructions for the orchestrator:
             
             analysis = message.content[0].text
             
-            # Update UI in main thread
-            self.root.after(0, self.display_analysis, analysis)
+            # Update UI in main thread with prompt information
+            self.root.after(0, lambda: self.display_analysis(analysis, prompt_type, custom_prompt))
             
         except Exception as e:
             print(f"Claude API Error: {e}")  # Debug logging
@@ -1135,15 +1144,19 @@ Instructions for the orchestrator:
         finally:
             self.root.after(0, lambda: self.status_var.set("Ready"))
 
-    def perform_openai_analysis(self, content, custom_prompt=None):
+    def perform_openai_analysis(self, content, custom_prompt=None, prompt_type="prompt"):
         """Perform OpenAI analysis in background thread"""
         try:
             from openai import OpenAI
             
             self.status_var.set("Analyzing with ChatGPT...")
-            # Show progress in analysis window
-            self.root.after(0, lambda: self.analysis_text.delete(1.0, tk.END))
-            self.root.after(0, lambda: self.analysis_text.insert(1.0, "Processing request with ChatGPT...\n"))
+            # Show progress in analysis window only if it's empty or has previous content
+            current = self.analysis_text.get(1.0, tk.END).strip()
+            if not current or not current.startswith("Processing"):
+                # Append processing message instead of clearing
+                if current:
+                    self.root.after(0, lambda: self.analysis_text.insert(tk.END, "\n\n"))
+                self.root.after(0, lambda: self.analysis_text.insert(tk.END, "Processing request with ChatGPT...\n"))
             
             # Use provided prompt or get default
             if custom_prompt is None:
@@ -1182,8 +1195,8 @@ Instructions for the orchestrator:
             # Extract the response content
             analysis = response.choices[0].message.content
 
-            # Update UI in main thread
-            self.root.after(0, self.display_analysis, analysis)
+            # Update UI in main thread with prompt information
+            self.root.after(0, lambda: self.display_analysis(analysis, prompt_type, custom_prompt))
 
         except Exception as e:
             print(f"OpenAI API Error: {e}")  # Debug logging
@@ -1238,10 +1251,113 @@ Instructions for the orchestrator:
             print(f"Error removing file {file_obj.rel_path}: {e}")
             messagebox.showerror("Error", f"Failed to remove file: {e}")
 
-    def display_analysis(self, analysis):
-        """Display ChatGPT analysis result"""
+    def add_copy_button_for_response(self, text, start_pos, end_pos):
+        """Add inline copy functionality for a specific response"""
+        # Store the response text for copy functionality
+        self.chat_history.append({
+            'text': text,
+            'start': start_pos,
+            'end': end_pos
+        })
+        
+        # Add clickable copy hint at the end of response
+        self.analysis_text.insert(tk.END, "\n[📋 Click here to copy this response]")
+        
+        # Make it clickable by binding to a tag
+        tag_name = f"copy_{len(self.chat_history)}"
+        # Get the position of the copy text we just inserted
+        copy_start = str(self.analysis_text.index(tk.END + "-1line"))
+        copy_end = str(self.analysis_text.index(tk.END + "-1c"))
+        
+        # Apply tag and styling
+        self.analysis_text.tag_add(tag_name, copy_start, copy_end)
+        self.analysis_text.tag_config(tag_name, foreground="blue", underline=True)
+        self.analysis_text.tag_bind(tag_name, "<Button-1>", 
+                                   lambda e, t=text: self.copy_response_to_clipboard(t))
+        self.analysis_text.tag_bind(tag_name, "<Enter>", 
+                                   lambda e: self.analysis_text.config(cursor="hand2"))
+        self.analysis_text.tag_bind(tag_name, "<Leave>", 
+                                   lambda e: self.analysis_text.config(cursor=""))
+    
+    def copy_response_to_clipboard(self, text):
+        """Copy a specific response to clipboard"""
+        pyperclip.copy(text)
+        self.status_var.set("Response copied to clipboard!")
+        self.root.after(2000, lambda: self.status_var.set("Ready") 
+                       if self.status_var.get().startswith("Response copied") else None)
+    
+    def clear_chat_history(self):
+        """Clear the chat history and analysis text"""
+        self.chat_history.clear()
+        self.response_frames.clear()
         self.analysis_text.delete(1.0, tk.END)
-        self.analysis_text.insert(1.0, analysis)
+        self.status_var.set("Chat history cleared")
+    
+    def display_analysis(self, analysis, prompt_type="AI", prompt_text=""):
+        """Display AI analysis result in continuous chat format"""
+        # Don't clear - append to existing content
+        
+        # Handle processing message and separators
+        current_content = self.analysis_text.get(1.0, tk.END).strip()
+        
+        if "Processing request with" in current_content:
+            # Remove the processing line but keep any existing chat history
+            lines = current_content.split('\n')
+            filtered_lines = [line for line in lines if not line.startswith("Processing request with")]
+            remaining_content = '\n'.join(filtered_lines).strip()
+            
+            # Clear and restore content without processing message
+            self.analysis_text.delete(1.0, tk.END)
+            if remaining_content:
+                self.analysis_text.insert(1.0, remaining_content)
+                current_content = remaining_content
+            else:
+                current_content = ""
+        
+        if current_content:
+            self.analysis_text.insert(tk.END, "\n\n" + "="*60 + "\n\n")
+        
+        # Add timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        
+        # Add prompt type and timestamp header
+        if prompt_type == "orchestrator":
+            header = f"🎭 ORCHESTRATOR PROMPT [{timestamp}]:\n"
+            prompt_icon = "🎭"
+        else:
+            header = f"✏️ ANALYSIS PROMPT [{timestamp}]:\n"
+            prompt_icon = "✏️"
+        
+        # Insert the header
+        start_pos = self.analysis_text.index(tk.END)
+        self.analysis_text.insert(tk.END, header)
+        
+        # Insert the actual prompt used (truncated if too long)
+        if prompt_text:
+            display_prompt = prompt_text[:200] + "..." if len(prompt_text) > 200 else prompt_text
+            self.analysis_text.insert(tk.END, f"{display_prompt}\n\n")
+        
+        # Insert response header
+        if self.preferred_api == 'anthropic':
+            response_header = f"🤖 CLAUDE RESPONSE:\n"
+        else:
+            response_header = f"🤖 CHATGPT RESPONSE:\n"
+        
+        self.analysis_text.insert(tk.END, response_header)
+        
+        # Insert the actual response
+        response_start = self.analysis_text.index(tk.END)
+        self.analysis_text.insert(tk.END, analysis)
+        response_end = self.analysis_text.index(tk.END)
+        
+        # Add copy button for this response
+        self.add_copy_button_for_response(analysis, response_start, response_end)
+        
+        # Auto-scroll to bottom
+        self.analysis_text.see(tk.END)
+        
+        # Update status
         self.status_var.set("Analysis complete")
     
     def toggle_selected_size(self):
