@@ -1647,48 +1647,55 @@ Instructions for the orchestrator:
         """Copy the AI analysis instructions to Claude Code terminal for automated execution"""
         try:
             import pyperclip
-            import subprocess
-            import os
+            import time
+            
+            print(f"DEBUG: Starting simplified automation process...")
             
             # Copy the analysis to clipboard
             pyperclip.copy(analysis)
+            print(f"DEBUG: Analysis copied to clipboard (length: {len(analysis)} chars)")
             
-            # Get the project path
-            project_path = self.path_var.get()
-            if not project_path or not os.path.exists(project_path):
-                self.status_var.set("❌ Invalid project path - cannot automate")
-                return
+            # Verify clipboard content
+            clipboard_content = pyperclip.paste()
+            print(f"DEBUG: Clipboard verification - matches: {clipboard_content == analysis}")
             
-            # Try to focus Claude Code terminal if running
-            # This is a basic implementation - may need adjustment based on system
             try:
-                # On Windows, try to find and focus Claude Code window
-                if os.name == 'nt':
-                    # Use PowerShell to find and focus Claude Code window
-                    powershell_cmd = '''
-                    Add-Type -AssemblyName Microsoft.VisualBasic
-                    $windows = Get-Process | Where-Object {$_.MainWindowTitle -like "*Claude Code*" -or $_.ProcessName -like "*claude*"}
-                    if ($windows) {
-                        $windows | ForEach-Object { [Microsoft.VisualBasic.Interaction]::AppActivate($_.Id) }
-                    }
-                    '''
-                    subprocess.run(["powershell", "-Command", powershell_cmd], shell=True, capture_output=True)
+                # Use keyboard module for automation
+                import keyboard
+                print(f"DEBUG: Keyboard module imported successfully")
                 
-                # Update status to inform user
-                self.status_var.set("📋 Instructions copied to clipboard - Switch to Claude Code terminal and paste")
+                # Simple approach: Use Alt+Tab to switch to the most likely Cursor window
+                print("DEBUG: Using Alt+Tab to switch to Cursor...")
+                keyboard.send('alt+tab')
+                time.sleep(1.0)
                 
-                # Show a brief notification
-                self.root.after(5000, lambda: self.status_var.set("Ready") if "copied to clipboard" in self.status_var.get() else None)
+                # Give user a moment to manually click on Cursor if needed
+                print("DEBUG: Waiting 2 seconds for window focus...")
+                time.sleep(2.0)
                 
+                # Now paste and send
+                print("DEBUG: Sending Ctrl+V...")
+                keyboard.send('ctrl+v')
+                time.sleep(0.5)
+                
+                print("DEBUG: Sending Enter...")
+                keyboard.send('enter')
+                
+                print("DEBUG: Automation completed!")
+                self.status_var.set("✅ Instructions pasted - Alt+Tab used to switch windows")
+                
+            except ImportError:
+                print("DEBUG: Keyboard module not available")
+                self.status_var.set("📋 Instructions copied to clipboard - Paste manually with Ctrl+V")
             except Exception as e:
-                print(f"Window focus error: {e}")
-                self.status_var.set("📋 Instructions copied to clipboard - Manually switch to Claude Code terminal")
+                print(f"DEBUG: Keyboard error: {e}")
+                self.status_var.set("📋 Instructions copied to clipboard - Automation failed, paste manually")
         
         except ImportError:
-            # If pyperclip is not available, show instructions to user
-            self.status_var.set("⚠️ Install pyperclip for automation: pip install pyperclip")
+            print("DEBUG: pyperclip not available")
+            self.status_var.set("⚠️ Install pyperclip for automation")
         except Exception as e:
-            print(f"Automation error: {e}")
+            print(f"DEBUG: Main exception: {e}")
             self.status_var.set("❌ Automation failed - check console for details")
     
     def toggle_selected_size(self):

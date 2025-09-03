@@ -11,7 +11,8 @@
       "WebFetch(domain:cookbook.openai.com)",
       "Bash(npx @modelcontextprotocol/inspector:*)",
       "WebFetch(domain:chat.openai.com)",
-      "WebFetch(domain:chatgpt.com)"
+      "WebFetch(domain:chatgpt.com)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []
