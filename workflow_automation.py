@@ -32,6 +32,9 @@ class WorkflowAutomator:
         self.root = root
         self.root.title("Git Workflow Automator")
         self.root.geometry("1400x900")
+        
+        # Configure dark ChatGPT-style theme
+        self.setup_dark_theme()
 
         self.project_path = ""
         self.repo_root = ""
@@ -50,6 +53,162 @@ class WorkflowAutomator:
         self.preferred_api = self.determine_preferred_api()
 
         self.setup_ui()
+    
+    def setup_dark_theme(self):
+        """Configure dark ChatGPT-style theme"""
+        # ChatGPT-inspired dark color scheme
+        self.colors = {
+            'bg_primary': '#212121',      # Main background (darker gray)
+            'bg_secondary': '#2f2f2f',    # Secondary background (lighter gray)
+            'bg_tertiary': '#3a3a3a',     # Tertiary background (cards, panels)
+            'bg_input': '#404040',        # Input fields background
+            'bg_button': '#565656',       # Button background
+            'bg_button_hover': '#686868', # Button hover background
+            'text_primary': '#ececec',    # Primary text (white-ish)
+            'text_secondary': '#b4b4b4',  # Secondary text (light gray)
+            'text_muted': '#8e8e8e',      # Muted text (medium gray)
+            'accent': '#10a37f',          # ChatGPT green accent
+            'accent_hover': '#1a7f64',    # Darker green for hover
+            'border': '#4a4a4a',          # Border color
+            'border_light': '#5a5a5a',    # Lighter border
+            'chat_user': '#2f2f2f',       # User message background
+            'chat_ai': '#1e1e1e',         # AI message background
+            'success': '#10a37f',         # Success/copy feedback
+            'error': '#ef4444',           # Error color
+            'warning': '#f59e0b'          # Warning color
+        }
+        
+        # ChatGPT-style fonts
+        self.fonts = {
+            'default': ('Segoe UI', 10),
+            'heading': ('Segoe UI', 12, 'bold'),
+            'small': ('Segoe UI', 9),
+            'code': ('Consolas', 9),
+            'button': ('Segoe UI', 9)
+        }
+        
+        # Configure root window
+        self.root.configure(bg=self.colors['bg_primary'])
+        
+        # Configure ttk styles
+        style = ttk.Style()
+        style.theme_use('clam')  # Use clam theme as base
+        
+        # Configure ttk widget styles
+        self.configure_ttk_styles(style)
+    
+    def configure_ttk_styles(self, style):
+        """Configure ttk widget styles for dark theme"""
+        # Configure Frame styles
+        style.configure('TFrame',
+                       background=self.colors['bg_primary'],
+                       borderwidth=0)
+        
+        style.configure('Card.TFrame',
+                       background=self.colors['bg_tertiary'],
+                       borderwidth=1,
+                       relief='flat')
+        
+        # Configure Label styles
+        style.configure('TLabel',
+                       background=self.colors['bg_primary'],
+                       foreground=self.colors['text_primary'],
+                       font=self.fonts['default'])
+        
+        style.configure('Heading.TLabel',
+                       background=self.colors['bg_primary'],
+                       foreground=self.colors['text_primary'],
+                       font=self.fonts['heading'])
+        
+        style.configure('Secondary.TLabel',
+                       background=self.colors['bg_primary'],
+                       foreground=self.colors['text_secondary'],
+                       font=self.fonts['small'])
+        
+        # Configure Button styles
+        style.configure('TButton',
+                       background=self.colors['bg_button'],
+                       foreground=self.colors['text_primary'],
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=self.fonts['button'],
+                       padding=(12, 8))
+        
+        style.map('TButton',
+                 background=[('active', self.colors['bg_button_hover']),
+                           ('pressed', self.colors['bg_button'])],
+                 foreground=[('active', self.colors['text_primary'])])
+        
+        style.configure('Accent.TButton',
+                       background=self.colors['accent'],
+                       foreground='white')
+        
+        style.map('Accent.TButton',
+                 background=[('active', self.colors['accent_hover']),
+                           ('pressed', self.colors['accent'])])
+        
+        # Configure Entry styles
+        style.configure('TEntry',
+                       fieldbackground=self.colors['bg_input'],
+                       background=self.colors['bg_input'],
+                       foreground=self.colors['text_primary'],
+                       borderwidth=1,
+                       bordercolor=self.colors['border'],
+                       insertcolor=self.colors['text_primary'],
+                       font=self.fonts['default'])
+        
+        style.map('TEntry',
+                 bordercolor=[('focus', self.colors['accent'])])
+        
+        # Configure PanedWindow styles  
+        style.configure('TPanedwindow',
+                       background=self.colors['bg_primary'])
+        
+        # Configure Checkbutton styles
+        style.configure('TCheckbutton',
+                       background=self.colors['bg_primary'],
+                       foreground=self.colors['text_primary'],
+                       focuscolor='none',
+                       font=self.fonts['default'])
+        
+        style.map('TCheckbutton',
+                 background=[('active', self.colors['bg_secondary'])])
+        
+        # Configure Menubutton styles
+        style.configure('TMenubutton',
+                       background=self.colors['bg_button'],
+                       foreground=self.colors['text_primary'],
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=self.fonts['button'],
+                       padding=(12, 8))
+        
+        style.map('TMenubutton',
+                 background=[('active', self.colors['bg_button_hover'])])
+        
+        # Configure Sidebar styles
+        style.configure('Sidebar.TFrame',
+                       background=self.colors['bg_tertiary'],
+                       borderwidth=0,
+                       relief='flat')
+        
+        style.configure('SidebarIcon.TLabel',
+                       background=self.colors['bg_tertiary'],
+                       foreground=self.colors['text_primary'],
+                       font=('Segoe UI', 16),
+                       anchor='center')
+        
+        style.configure('Sidebar.TButton',
+                       background=self.colors['bg_button'],
+                       foreground=self.colors['text_primary'],
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=('Segoe UI', 10, 'bold'),
+                       padding=(8, 6))
+        
+        style.map('Sidebar.TButton',
+                 background=[('active', self.colors['bg_button_hover']),
+                           ('pressed', self.colors['bg_button'])])
 
     def determine_preferred_api(self):
         """Determine which API to use based on available keys"""
@@ -143,31 +302,33 @@ class WorkflowAutomator:
         return False
 
     def setup_ui(self):
-        # Main frame
-        main_frame = ttk.Frame(self.root, padding="10")
+        # Main frame with no padding to maximize space
+        main_frame = ttk.Frame(self.root, style='TFrame')
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # Configure grid weights
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=1)
+        main_frame.columnconfigure(0, weight=0)  # Sidebar column - fixed width
+        main_frame.columnconfigure(1, weight=1)  # Main content column - expandable
+        main_frame.columnconfigure(2, weight=0)  # Button column - fixed width
         main_frame.rowconfigure(2, weight=1)
 
-        # Project path selection
+        # Project path selection (spans columns 1-2, leaving column 0 for sidebar)
         path_label = ttk.Label(main_frame, text="📂 Project Path:", 
-                              font=("Segoe UI", 11))
-        path_label.grid(row=0, column=0, sticky=tk.W, pady=5)
+                              style='Heading.TLabel')
+        path_label.grid(row=0, column=1, sticky=tk.W, padx=(10, 0), pady=(10, 5))
         self.path_var = tk.StringVar()
-        ttk.Entry(main_frame, textvariable=self.path_var, width=50).grid(
-            row=0, column=1, sticky=(tk.W, tk.E), padx=5)
-        ttk.Button(main_frame, text="Browse", command=self.browse_project).grid(
-            row=0, column=2, padx=5)
+        ttk.Entry(main_frame, textvariable=self.path_var, width=50, style='TEntry').grid(
+            row=0, column=1, sticky=(tk.W, tk.E), padx=(150, 5))  # Offset for label
+        ttk.Button(main_frame, text="Browse", command=self.browse_project, style='TButton').grid(
+            row=0, column=2, padx=(0, 10))
 
         # API status and key management
         api_status = self.get_api_status()
         api_label = ttk.Label(main_frame, text=f"🔑 API Status: {api_status}",
-                             font=("Segoe UI", 11))
-        api_label.grid(row=1, column=0, sticky=tk.W, pady=5)
+                             style='Secondary.TLabel')
+        api_label.grid(row=1, column=1, sticky=tk.W, padx=(10, 0), pady=(5, 5))
         
         self.api_key_var = tk.StringVar()
         if self.preferred_api == 'anthropic':
@@ -179,55 +340,83 @@ class WorkflowAutomator:
             
         api_entry = ttk.Entry(main_frame, textvariable=self.api_key_var, 
                              width=50, state='readonly')
-        api_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5)
+        api_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(150, 5))
         
         ttk.Button(main_frame, text="Refresh Files",
-                   command=self.refresh_changed_files).grid(row=1, column=2, padx=5)
+                   command=self.refresh_changed_files).grid(row=1, column=2, padx=(0, 10))
 
-        # Paned window for split view with visible sash
-        # Use tk.PanedWindow instead of ttk for better customization
-        paned = tk.PanedWindow(main_frame, 
+        # Paned window for split view with ChatGPT-style sash
+        self.main_paned = tk.PanedWindow(main_frame, 
                               orient=tk.HORIZONTAL,
-                              sashwidth=15,
-                              sashrelief=tk.RAISED,
-                              bg='#d0d0d0',
+                              sashwidth=8,
+                              sashrelief=tk.FLAT,
+                              bg=self.colors['border'],
                               sashcursor='sb_h_double_arrow',
-                              showhandle=True,
-                              handlesize=10,
-                              handlepad=50,
+                              showhandle=False,
                               opaqueresize=True)
-        paned.grid(row=2, column=0, columnspan=3,
-                   sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
+        self.main_paned.grid(row=2, column=1, columnspan=2,
+                   sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10), pady=(10, 0))
 
         # Left panel - Changed files with enhanced UI
-        left_frame = ttk.Frame(paned)
-        paned.add(left_frame, minsize=400)
+        self.left_frame = ttk.Frame(self.main_paned, style='Card.TFrame')
+        self.main_paned.add(self.left_frame, minsize=400)
 
         # Changed files header with collapse button and restart
-        files_header_frame = ttk.Frame(left_frame)
-        files_header_frame.pack(fill=tk.X, pady=5)
+        files_header_frame = ttk.Frame(self.left_frame, style='TFrame')
+        files_header_frame.pack(fill=tk.X, padx=15, pady=(15, 5))
+        
+        # Initialize files section collapsed state - start collapsed
+        self.files_section_collapsed = True
+        # Create a sidebar-style toggle section that remains visible when collapsed
+        self.toggle_frame = ttk.Frame(main_frame, style='Card.TFrame')
+        self.toggle_frame.grid(row=2, column=0, sticky=(tk.N, tk.S, tk.W), padx=(10, 0), pady=(10, 0))
+        
+        # Configure the sidebar with proper styling
+        self.toggle_frame.configure(style='Sidebar.TFrame')
+        
+        # Add padding inside the sidebar
+        sidebar_content = ttk.Frame(self.toggle_frame, style='TFrame')
+        sidebar_content.pack(fill=tk.BOTH, expand=True, padx=8, pady=15)
+        
+        # Files icon
+        files_icon = ttk.Label(sidebar_content, text="📁", 
+                              style='SidebarIcon.TLabel', font=('Segoe UI', 16))
+        files_icon.pack(pady=(0, 10))
+        
+        # Toggle button
+        self.files_toggle_btn = ttk.Button(sidebar_content, text="▶",
+                                          command=self.toggle_files_section, style='Sidebar.TButton',
+                                          width=3)
+        self.files_toggle_btn.pack()
+        
+        # Start with the section collapsed
+        self.main_paned.forget(self.left_frame)
+        
         
         files_label = ttk.Label(files_header_frame, text="📁 Changed Files:", 
-                               font=("Segoe UI", 12, "bold"))
+                               style='Heading.TLabel')
         files_label.pack(side=tk.LEFT)
         
         # Button container on the right
-        header_buttons = ttk.Frame(files_header_frame)
+        header_buttons = ttk.Frame(files_header_frame, style='TFrame')
         header_buttons.pack(side=tk.RIGHT)
         
         ttk.Button(header_buttons, text="Restart",
-                   command=self.restart_application).pack(side=tk.LEFT, padx=(0, 5))
+                   command=self.restart_application, style='TButton').pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(header_buttons, text="Collapse All",
-                   command=self.collapse_all_files).pack(side=tk.LEFT)
+                   command=self.collapse_all_files, style='TButton').pack(side=tk.LEFT)
 
         # Scrollable frame for file list
-        canvas_frame = ttk.Frame(left_frame)
-        canvas_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        self.canvas_frame = ttk.Frame(self.left_frame, style='TFrame')
+        self.canvas_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
 
-        self.canvas = tk.Canvas(canvas_frame)
+        self.canvas = tk.Canvas(self.canvas_frame, 
+                               bg=self.colors['bg_tertiary'],
+                               highlightthickness=0,
+                               borderwidth=0)
         scrollbar_v = ttk.Scrollbar(
-            canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
-        self.scrollable_frame = ttk.Frame(self.canvas)
+            self.canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas, style='TFrame')
 
         self.scrollable_frame.bind(
             "<Configure>",
@@ -246,59 +435,67 @@ class WorkflowAutomator:
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
 
         # Right panel - Contains vertically split Selected and Analysis sections
-        right_frame = ttk.Frame(paned)
-        paned.add(right_frame, minsize=400)
+        right_frame = ttk.Frame(self.main_paned, style='Card.TFrame')
+        self.main_paned.add(right_frame, minsize=400)
 
         # Create a vertical PanedWindow to split Selected and Analysis 50/50
-        # Use tk.PanedWindow for better visibility
         vertical_paned = tk.PanedWindow(right_frame, 
                                        orient=tk.VERTICAL,
-                                       sashwidth=15,
-                                       sashrelief=tk.RAISED,
-                                       bg='#d0d0d0',
+                                       sashwidth=6,
+                                       sashrelief=tk.FLAT,
+                                       bg=self.colors['border'],
                                        sashcursor='sb_v_double_arrow',
-                                       showhandle=True,
-                                       handlesize=10,
-                                       handlepad=50,
+                                       showhandle=False,
                                        opaqueresize=True)
-        vertical_paned.pack(fill=tk.BOTH, expand=True)
+        vertical_paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Top section - Selected for Analysis (smaller by default)
-        selected_container = ttk.Frame(vertical_paned)
+        selected_container = ttk.Frame(vertical_paned, style='TFrame')
         vertical_paned.add(selected_container, minsize=150, height=250)  # Start smaller
 
         # Selected files header
-        selected_label_frame = ttk.Frame(selected_container)
-        selected_label_frame.pack(fill=tk.X, padx=5, pady=5)
+        selected_label_frame = ttk.Frame(selected_container, style='TFrame')
+        selected_label_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
 
         selected_label = ttk.Label(selected_label_frame, text="📋 Selected for Analysis:",
-                                  font=("Segoe UI", 12, "bold"))
+                                  style='Heading.TLabel')
         selected_label.pack(side=tk.LEFT)
         
         # Button frame for multiple buttons
-        button_frame = ttk.Frame(selected_label_frame)
+        button_frame = ttk.Frame(selected_label_frame, style='TFrame')
         button_frame.pack(side=tk.RIGHT)
         
         self.expand_selected_btn = ttk.Button(button_frame, text="Expand ↓",
-                   command=self.toggle_selected_size)
+                   command=self.toggle_selected_size, style='TButton')
         self.expand_selected_btn.pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Copy All",
-                   command=self.copy_all_selected).pack(side=tk.LEFT, padx=2)
+                   command=self.copy_all_selected, style='TButton').pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Append All",
-                   command=self.append_all_files).pack(side=tk.LEFT, padx=2)
+                   command=self.append_all_files, style='TButton').pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Clear All",
-                   command=self.clear_selection).pack(side=tk.LEFT, padx=2)
+                   command=self.clear_selection, style='TButton').pack(side=tk.LEFT, padx=2)
 
         # Selected files text area
-        selected_frame = ttk.Frame(selected_container)
-        selected_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
+        selected_frame = ttk.Frame(selected_container, style='TFrame')
+        selected_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
         self.selected_text = scrolledtext.ScrolledText(
-            selected_frame, wrap=tk.WORD, font=("Consolas", 9))
+            selected_frame, 
+            wrap=tk.WORD, 
+            font=self.fonts['code'],
+            bg=self.colors['chat_user'],
+            fg=self.colors['text_primary'],
+            insertbackground=self.colors['text_primary'],
+            selectbackground=self.colors['accent'],
+            selectforeground='white',
+            borderwidth=0,
+            highlightthickness=1,
+            highlightcolor=self.colors['accent'],
+            highlightbackground=self.colors['border'])
         self.selected_text.pack(fill=tk.BOTH, expand=True)
 
         # Bottom section - AI Analysis (larger by default)
-        analysis_container = ttk.Frame(vertical_paned)
+        analysis_container = ttk.Frame(vertical_paned, style='TFrame')
         vertical_paned.add(analysis_container, minsize=300)  # Larger for AI analysis
         
         # Store reference to vertical paned window
@@ -307,8 +504,8 @@ class WorkflowAutomator:
         self.analysis_container = analysis_container
 
         # Analysis header and buttons
-        analysis_header_frame = ttk.Frame(analysis_container)
-        analysis_header_frame.pack(fill=tk.X, padx=5, pady=5)
+        analysis_header_frame = ttk.Frame(analysis_container, style='TFrame')
+        analysis_header_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
 
         # Dynamic label text based on available API
         if self.preferred_api == 'anthropic':
@@ -322,38 +519,49 @@ class WorkflowAutomator:
             analysis_label_text = "🤖 AI Analysis:"
 
         analysis_label = ttk.Label(analysis_header_frame, text=analysis_label_text,
-                                  font=("Segoe UI", 12, "bold"))
+                                  style='Heading.TLabel')
         analysis_label.pack(side=tk.LEFT)
 
         # Analysis buttons
-        analysis_buttons = ttk.Frame(analysis_header_frame)
+        analysis_buttons = ttk.Frame(analysis_header_frame, style='TFrame')
         analysis_buttons.pack(side=tk.RIGHT)
         
         self.toggle_orchestrator_btn = ttk.Button(analysis_buttons, text="Orchestrator ▼",
-                   command=self.toggle_orchestrator_section)
+                   command=self.toggle_orchestrator_section, style='TButton')
         self.toggle_orchestrator_btn.pack(side=tk.LEFT, padx=2)
         
         self.toggle_prompt_btn = ttk.Button(analysis_buttons, text="Prompt ▼",
-                   command=self.toggle_prompt_section)
+                   command=self.toggle_prompt_section, style='TButton')
         self.toggle_prompt_btn.pack(side=tk.LEFT, padx=2)
         
         ttk.Button(analysis_buttons, text="Clear Chat",
-                   command=self.clear_chat_history).pack(side=tk.LEFT, padx=2)
+                   command=self.clear_chat_history, style='Accent.TButton').pack(side=tk.LEFT, padx=2)
 
         # Collapsible orchestrator section (hidden by default)
-        self.orchestrator_frame = ttk.Frame(analysis_container)
+        self.orchestrator_frame = ttk.Frame(analysis_container, style='TFrame')
         # Don't pack yet - will be toggled
         
         orchestrator_label = ttk.Label(self.orchestrator_frame, text="🎭 Orchestrator Prompt:",
-                                      font=("Segoe UI", 11))
-        orchestrator_label.pack(anchor=tk.W, padx=5, pady=(5, 2))
+                                      style='Secondary.TLabel')
+        orchestrator_label.pack(anchor=tk.W, padx=10, pady=(10, 5))
         
         # Orchestrator text area with default text
-        orchestrator_text_frame = ttk.Frame(self.orchestrator_frame)
-        orchestrator_text_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        orchestrator_text_frame = ttk.Frame(self.orchestrator_frame, style='TFrame')
+        orchestrator_text_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
         
-        self.orchestrator_text = tk.Text(orchestrator_text_frame, height=4, wrap=tk.WORD,
-                                        font=("Consolas", 9))
+        self.orchestrator_text = tk.Text(orchestrator_text_frame, 
+                                        height=4, 
+                                        wrap=tk.WORD,
+                                        font=self.fonts['code'],
+                                        bg=self.colors['bg_input'],
+                                        fg=self.colors['text_primary'],
+                                        insertbackground=self.colors['text_primary'],
+                                        selectbackground=self.colors['accent'],
+                                        selectforeground='white',
+                                        borderwidth=0,
+                                        highlightthickness=1,
+                                        highlightcolor=self.colors['accent'],
+                                        highlightbackground=self.colors['border'])
         self.orchestrator_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         # Add scrollbar to orchestrator prompt
@@ -362,8 +570,8 @@ class WorkflowAutomator:
         self.orchestrator_text.config(yscrollcommand=orchestrator_scroll.set)
         
         # Add Send button for orchestrator
-        orchestrator_btn_frame = ttk.Frame(self.orchestrator_frame)
-        orchestrator_btn_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        orchestrator_btn_frame = ttk.Frame(self.orchestrator_frame, style='TFrame')
+        orchestrator_btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
         
         if self.preferred_api == 'anthropic':
             orch_send_text = "Send to Claude"
@@ -373,7 +581,8 @@ class WorkflowAutomator:
             orch_send_text = "Send to AI"
             
         ttk.Button(orchestrator_btn_frame, text=orch_send_text,
-                   command=lambda: self.send_to_ai_with_specific_prompt('orchestrator')).pack(side=tk.LEFT)
+                   command=lambda: self.send_to_ai_with_specific_prompt('orchestrator'),
+                   style='Accent.TButton').pack(side=tk.LEFT)
         
         # Set default orchestrator prompt text
         default_orchestrator = """Generate a text prompt for orchestrator Claude agent with clear instructions for fixing this issue.
@@ -387,19 +596,30 @@ Instructions for the orchestrator:
         self.orchestrator_text.insert('1.0', default_orchestrator)
         
         # Collapsible prompt section (hidden by default)
-        self.prompt_frame = ttk.Frame(analysis_container)
+        self.prompt_frame = ttk.Frame(analysis_container, style='TFrame')
         # Don't pack yet - will be toggled
         
         prompt_label = ttk.Label(self.prompt_frame, text="✏️ AI Prompt:",
-                                font=("Segoe UI", 11))
-        prompt_label.pack(anchor=tk.W, padx=5, pady=(5, 2))
+                                style='Secondary.TLabel')
+        prompt_label.pack(anchor=tk.W, padx=10, pady=(10, 5))
         
         # Prompt text area with default text
-        prompt_text_frame = ttk.Frame(self.prompt_frame)
-        prompt_text_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        prompt_text_frame = ttk.Frame(self.prompt_frame, style='TFrame')
+        prompt_text_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
         
-        self.prompt_text = tk.Text(prompt_text_frame, height=3, wrap=tk.WORD,
-                                  font=("Consolas", 9))
+        self.prompt_text = tk.Text(prompt_text_frame, 
+                                  height=3, 
+                                  wrap=tk.WORD,
+                                  font=self.fonts['code'],
+                                  bg=self.colors['bg_input'],
+                                  fg=self.colors['text_primary'],
+                                  insertbackground=self.colors['text_primary'],
+                                  selectbackground=self.colors['accent'],
+                                  selectforeground='white',
+                                  borderwidth=0,
+                                  highlightthickness=1,
+                                  highlightcolor=self.colors['accent'],
+                                  highlightbackground=self.colors['border'])
         self.prompt_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         # Add scrollbar to prompt
@@ -408,8 +628,8 @@ Instructions for the orchestrator:
         self.prompt_text.config(yscrollcommand=prompt_scroll.set)
         
         # Add Send button for regular prompt
-        prompt_btn_frame = ttk.Frame(self.prompt_frame)
-        prompt_btn_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        prompt_btn_frame = ttk.Frame(self.prompt_frame, style='TFrame')
+        prompt_btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
         
         if self.preferred_api == 'anthropic':
             prompt_send_text = "Send to Claude"
@@ -419,27 +639,35 @@ Instructions for the orchestrator:
             prompt_send_text = "Send to AI"
             
         ttk.Button(prompt_btn_frame, text=prompt_send_text,
-                   command=lambda: self.send_to_ai_with_specific_prompt('prompt')).pack(side=tk.LEFT)
+                   command=lambda: self.send_to_ai_with_specific_prompt('prompt'),
+                   style='Accent.TButton').pack(side=tk.LEFT)
         
         # Set default prompt text
         default_prompt = "Make a deep analysis of these code changes. Focus on:\n- Code quality and potential issues\n- Suggestions for improvements\n- Security considerations\n- Performance implications"
         self.prompt_text.insert('1.0', default_prompt)
         
-        # AI response text area
-        analysis_frame = ttk.Frame(analysis_container)
-        analysis_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0, 5))
+        # AI response text area - The main chat interface
+        analysis_frame = ttk.Frame(analysis_container, style='TFrame')
+        analysis_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 10))
 
         self.analysis_text = scrolledtext.ScrolledText(
-            analysis_frame, wrap=tk.WORD)
+            analysis_frame, 
+            wrap=tk.WORD,
+            font=self.fonts['code'],
+            bg=self.colors['chat_ai'],
+            fg=self.colors['text_primary'],
+            insertbackground=self.colors['text_primary'],
+            selectbackground=self.colors['accent'],
+            selectforeground='white',
+            borderwidth=0,
+            highlightthickness=1,
+            highlightcolor=self.colors['accent'],
+            highlightbackground=self.colors['border'],
+            padx=12,
+            pady=12)
         self.analysis_text.pack(fill=tk.BOTH, expand=True)
 
-        # Status bar
-        self.status_var = tk.StringVar()
-        self.status_var.set("Ready")
-        status_bar = ttk.Label(
-            main_frame, textvariable=self.status_var, relief=tk.SUNKEN)
-        status_bar.grid(row=3, column=0, columnspan=3,
-                        sticky=(tk.W, tk.E), pady=5)
+        # Remove status bar to save space
 
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
@@ -579,35 +807,39 @@ Instructions for the orchestrator:
             self.scrollable_frame.config(width=estimated_width)
         
         for i, file_obj in enumerate(self.changed_files):
-            # Main file frame
-            file_frame = ttk.Frame(self.scrollable_frame,
-                                   relief=tk.RIDGE, borderwidth=1)
-            file_frame.pack(fill=tk.X, padx=5, pady=2)
+            # Main file frame with card styling
+            file_frame = ttk.Frame(self.scrollable_frame, style='Card.TFrame')
+            file_frame.pack(fill=tk.X, padx=8, pady=4)
 
             # File header frame
-            header_frame = ttk.Frame(file_frame)
-            header_frame.pack(fill=tk.X, padx=5, pady=2)
+            header_frame = ttk.Frame(file_frame, style='TFrame')
+            header_frame.pack(fill=tk.X, padx=12, pady=8)
 
             # Status and filename
             status_label = ttk.Label(header_frame, text=f"[{file_obj.status}]",
-                                     foreground="blue", font=("TkDefaultFont", 9, "bold"))
-            status_label.pack(side=tk.LEFT, padx=2)
+                                     style='Secondary.TLabel')
+            status_label.pack(side=tk.LEFT, padx=(0, 8))
 
             filename_label = ttk.Label(header_frame, text=file_obj.rel_path,
-                                       font=("Consolas", 9))
-            filename_label.pack(side=tk.LEFT, padx=5)
+                                       style='TLabel')
+            filename_label.pack(side=tk.LEFT, padx=0)
 
             # Buttons frame
-            buttons_frame = ttk.Frame(header_frame)
+            buttons_frame = ttk.Frame(header_frame, style='TFrame')
             buttons_frame.pack(side=tk.RIGHT)
 
             # Copy Path dropdown
             path_var = tk.StringVar(value="Copy Path ▼")
             path_menu = ttk.Menubutton(
-                buttons_frame, textvariable=path_var, width=12)
-            path_menu.pack(side=tk.LEFT, padx=1)
+                buttons_frame, textvariable=path_var, width=12, style='TButton')
+            path_menu.pack(side=tk.LEFT, padx=2)
 
-            path_dropdown = tk.Menu(path_menu, tearoff=0)
+            path_dropdown = tk.Menu(path_menu, tearoff=0,
+                                   bg=self.colors['bg_secondary'],
+                                   fg=self.colors['text_primary'],
+                                   activebackground=self.colors['accent'],
+                                   activeforeground='white',
+                                   borderwidth=0)
             path_dropdown.add_command(label="Copy Relative Path",
                                       command=lambda f=file_obj: self.copy_path(f, relative=True))
             path_dropdown.add_command(label="Copy Absolute Path",
@@ -615,25 +847,28 @@ Instructions for the orchestrator:
             path_menu.config(menu=path_dropdown)
 
             # Copy & Append button (new one-click workflow)
-            copy_append_btn = ttk.Button(buttons_frame, text="Copy & Append", width=13,
-                                         command=lambda f=file_obj: self.copy_and_append(f))
-            copy_append_btn.pack(side=tk.LEFT, padx=1)
+            copy_append_btn = ttk.Button(buttons_frame, text="Copy & Append", 
+                                         command=lambda f=file_obj: self.copy_and_append(f),
+                                         style='TButton')
+            copy_append_btn.pack(side=tk.LEFT, padx=2)
 
             # Show Content button
-            show_btn = ttk.Button(buttons_frame, text="Show Content", width=12,
-                                  command=lambda f=file_obj, idx=i: self.toggle_content(f, idx))
-            show_btn.pack(side=tk.LEFT, padx=1)
+            show_btn = ttk.Button(buttons_frame, text="Show Content",
+                                  command=lambda f=file_obj, idx=i: self.toggle_content(f, idx),
+                                  style='TButton')
+            show_btn.pack(side=tk.LEFT, padx=2)
 
             # Select checkbox
             select_var = tk.BooleanVar()
             select_cb = ttk.Checkbutton(buttons_frame, text="Select", variable=select_var,
                                         command=lambda f=file_obj, var=select_var: self.toggle_selection(f, var))
-            select_cb.pack(side=tk.LEFT, padx=1)
+            select_cb.pack(side=tk.LEFT, padx=2)
 
             # Remove button
-            remove_btn = ttk.Button(buttons_frame, text="Remove", width=8,
-                                    command=lambda f=file_obj: self.remove_file(f))
-            remove_btn.pack(side=tk.LEFT, padx=1)
+            remove_btn = ttk.Button(buttons_frame, text="Remove",
+                                    command=lambda f=file_obj: self.remove_file(f),
+                                    style='TButton')
+            remove_btn.pack(side=tk.LEFT, padx=2)
 
             # Store references for later access
             file_obj.widgets = {
@@ -742,13 +977,24 @@ Instructions for the orchestrator:
         
         print(f"Collapse complete. Collapsed {collapsed_count} files")
         
-        # Show status feedback
-        if collapsed_count > 0:
-            self.status_var.set(f"Collapsed {collapsed_count} expanded files")
-            self.root.after(2000, lambda: self.status_var.set("Ready") if self.status_var.get().startswith("Collapsed") else None)
+    def toggle_files_section(self):
+        """Toggle the horizontal visibility of the Changed Files section"""
+        print(f"DEBUG: Toggle called, currently collapsed: {self.files_section_collapsed}")
+        if self.files_section_collapsed:
+            # Expand the left panel
+            print("DEBUG: Expanding left panel")
+            self.main_paned.add(self.left_frame, before=self.main_paned.panes()[0] if self.main_paned.panes() else None)
+            self.main_paned.paneconfigure(self.left_frame, minsize=400)
+            self.files_toggle_btn.config(text="◀")
+            self.files_section_collapsed = False
+            print("DEBUG: Left panel expanded")
         else:
-            self.status_var.set("No files are currently expanded")
-            self.root.after(2000, lambda: self.status_var.set("Ready") if self.status_var.get().startswith("No files") else None)
+            # Collapse the left panel horizontally
+            print("DEBUG: Collapsing left panel")
+            self.main_paned.forget(self.left_frame)  # Remove left_frame from paned window
+            self.files_toggle_btn.config(text="▶")
+            self.files_section_collapsed = True
+            print("DEBUG: Left panel collapsed")
 
     def toggle_content(self, file_obj, file_index):
         """Toggle file content display"""
@@ -888,33 +1134,46 @@ Instructions for the orchestrator:
         if file_obj.error:
             # Show error
             error_frame = ttk.Frame(file_obj.widgets['frame'], style='TFrame')
-            error_frame.pack(fill=tk.X, padx=20, pady=5)
+            error_frame.pack(fill=tk.X, padx=20, pady=10)
 
             error_label = ttk.Label(
-                error_frame, text=file_obj.error, foreground="red")
+                error_frame, text=file_obj.error, style='Secondary.TLabel')
             error_label.pack(side=tk.LEFT)
 
             refresh_btn = ttk.Button(error_frame, text="Refresh",
-                                     command=lambda: self.refresh_changed_files())
+                                     command=lambda: self.refresh_changed_files(),
+                                     style='TButton')
             refresh_btn.pack(side=tk.RIGHT)
 
             file_obj.widgets['content_frame'] = error_frame
         else:
             # Show content
-            content_frame = ttk.Frame(file_obj.widgets['frame'])
-            content_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+            content_frame = ttk.Frame(file_obj.widgets['frame'], style='TFrame')
+            content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
             # Content controls
-            controls_frame = ttk.Frame(content_frame)
-            controls_frame.pack(fill=tk.X, pady=2)
+            controls_frame = ttk.Frame(content_frame, style='TFrame')
+            controls_frame.pack(fill=tk.X, pady=(0, 8))
 
             ttk.Button(controls_frame, text="Copy Content",
-                       command=lambda: self.copy_content(file_obj)).pack(side=tk.LEFT, padx=2)
+                       command=lambda: self.copy_content(file_obj),
+                       style='TButton').pack(side=tk.LEFT)
 
             # Content text area
-            content_text = scrolledtext.ScrolledText(content_frame, height=15,
-                                                     font=("Consolas", 9), wrap=tk.NONE)
-            content_text.pack(fill=tk.BOTH, expand=True, pady=2)
+            content_text = scrolledtext.ScrolledText(content_frame, 
+                                                     height=15,
+                                                     font=self.fonts['code'], 
+                                                     wrap=tk.NONE,
+                                                     bg=self.colors['bg_input'],
+                                                     fg=self.colors['text_primary'],
+                                                     insertbackground=self.colors['text_primary'],
+                                                     selectbackground=self.colors['accent'],
+                                                     selectforeground='white',
+                                                     borderwidth=0,
+                                                     highlightthickness=1,
+                                                     highlightcolor=self.colors['accent'],
+                                                     highlightbackground=self.colors['border'])
+            content_text.pack(fill=tk.BOTH, expand=True)
             content_text.insert('1.0', file_obj.content_preview)
             content_text.config(state='disabled')  # Read-only
 
@@ -1271,7 +1530,7 @@ Instructions for the orchestrator:
         
         # Apply tag and styling
         self.analysis_text.tag_add(tag_name, copy_start, copy_end)
-        self.analysis_text.tag_config(tag_name, foreground="blue", underline=True)
+        self.analysis_text.tag_config(tag_name, foreground=self.colors['accent'], underline=True)
         self.analysis_text.tag_bind(tag_name, "<Button-1>", 
                                    lambda e, t=text: self.copy_response_to_clipboard(t))
         self.analysis_text.tag_bind(tag_name, "<Enter>", 

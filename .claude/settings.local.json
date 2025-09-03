@@ -9,7 +9,9 @@
       "WebSearch",
       "WebFetch(domain:platform.openai.com)",
       "WebFetch(domain:cookbook.openai.com)",
-      "Bash(npx @modelcontextprotocol/inspector:*)"
+      "Bash(npx @modelcontextprotocol/inspector:*)",
+      "WebFetch(domain:chat.openai.com)",
+      "WebFetch(domain:chatgpt.com)"
     ],
     "deny": [],
     "ask": []
