@@ -214,6 +214,19 @@ class WorkflowAutomator:
                  background=[('active', self.colors['bg_button_hover']),
                            ('pressed', self.colors['bg_button'])])
 
+        # Style for files loaded (green) state
+        style.configure('SidebarLoaded.TButton',
+                       background=self.colors['success'],
+                       foreground='white',
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=('Segoe UI', 10, 'bold'),
+                       padding=(8, 6))
+        
+        style.map('SidebarLoaded.TButton',
+                 background=[('active', self.colors['accent_hover']),
+                           ('pressed', self.colors['success'])])
+
     def determine_preferred_api(self):
         """Determine which API to use based on available keys"""
         if self.anthropic_api_key:
@@ -294,15 +307,54 @@ class WorkflowAutomator:
 
     def is_path_excluded(self, filepath):
         """Check if a file path should be excluded"""
-        if not self.exclude_paths:
-            return False
-        
         import fnmatch
+        import os
         
-        for pattern in self.exclude_paths:
-            # Support both exact matches and glob patterns
-            if fnmatch.fnmatch(filepath, pattern) or fnmatch.fnmatch(filepath, f"*/{pattern}") or filepath.startswith(pattern):
+        # Get file extension and filename
+        file_ext = os.path.splitext(filepath)[1].lower()
+        filename = os.path.basename(filepath).lower()
+        
+        # Define file types to exclude from ChatGPT analysis
+        excluded_extensions = {
+            # Images
+            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp', '.ico', '.tiff',
+            # Documents
+            '.md', '.pdf', '.doc', '.docx',
+            # Binaries
+            '.exe', '.dll', '.so', '.dylib', '.bin', '.zip', '.tar', '.gz', '.rar',
+            # Media
+            '.mp4', '.avi', '.mov', '.mp3', '.wav', '.ogg',
+            # Config files that are usually not for analysis
+            '.lock', '.log', '.cache'
+        }
+        
+        # Define filename patterns to exclude
+        excluded_patterns = [
+            '*test*', '*spec*', '*Tests*', '*__test__*', '*__spec__*',
+            '*.test.*', '*.spec.*', 'test_*', 'spec_*',
+            '*node_modules*', '*__pycache__*', '*dist*', '*build*',
+            '*.min.*', '.gitignore', '.env*', 'package-lock.json', 'yarn.lock'
+        ]
+        
+        # Check file extension
+        if file_ext in excluded_extensions:
+            print(f"DEBUG: Excluding file by extension: '{filepath}' ({file_ext})")
+            return True
+        
+        # Check filename patterns
+        for pattern in excluded_patterns:
+            if fnmatch.fnmatch(filename, pattern) or fnmatch.fnmatch(filepath, pattern):
+                print(f"DEBUG: Excluding file by pattern '{pattern}': '{filepath}'")
                 return True
+        
+        # Check user-defined exclude paths
+        if self.exclude_paths:
+            for pattern in self.exclude_paths:
+                # Support both exact matches and glob patterns
+                if fnmatch.fnmatch(filepath, pattern) or fnmatch.fnmatch(filepath, f"*/{pattern}") or filepath.startswith(pattern):
+                    print(f"DEBUG: Excluding file by user pattern '{pattern}': '{filepath}'")
+                    return True
+        
         return False
 
     def setup_ui(self):
@@ -805,6 +857,12 @@ Instructions for the orchestrator:
             self.create_file_widgets()
             self.status_var.set(
                 f"Found {len(self.changed_files)} changed files")
+            
+            # Update toggle button style to green when files are loaded
+            if len(self.changed_files) > 0:
+                self.files_toggle_btn.configure(style='SidebarLoaded.TButton')
+            else:
+                self.files_toggle_btn.configure(style='Sidebar.TButton')
 
         except subprocess.CalledProcessError as e:
             print(f"DEBUG: Git command error: {e}")
@@ -1759,6 +1817,9 @@ Instructions for the orchestrator:
             self.path_var.set("")
             self.project_path = ""
             self.repo_root = ""
+            
+            # Reset toggle button style
+            self.files_toggle_btn.configure(style='Sidebar.TButton')
             
             # Update status
             self.status_var.set("Application restarted - Ready")
