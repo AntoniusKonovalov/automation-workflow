@@ -1722,22 +1722,29 @@ Instructions for the orchestrator:
                 import keyboard
                 print(f"DEBUG: Keyboard module imported successfully")
                 
-                # Simple approach: Use Alt+Tab to switch to the most likely Cursor window
-                print("DEBUG: Using Alt+Tab to switch to Cursor...")
+                # Try multiple Alt+Tab presses to find Claude window
+                print("DEBUG: Using Alt+Tab to switch to Claude terminal...")
                 keyboard.send('alt+tab')
-                time.sleep(1.0)
-                
-                # Give user a moment to manually click on Cursor if needed
-                print("DEBUG: Waiting 2 seconds for window focus...")
-                time.sleep(2.0)
-                
-                # Now paste and send
-                print("DEBUG: Sending Ctrl+V...")
-                keyboard.send('ctrl+v')
                 time.sleep(0.5)
                 
-                print("DEBUG: Sending Enter...")
+                # Try a second Alt+Tab if needed (in case there are multiple windows)
+                print("DEBUG: Sending second Alt+Tab if needed...")
+                keyboard.send('alt+tab')
+                time.sleep(0.5)
+                
+                # Give extra time for window focus and Claude to be ready
+                print("DEBUG: Waiting 3 seconds for Claude terminal to be ready...")
+                time.sleep(3.0)
+                
+                # Now paste the instructions
+                print("DEBUG: Pasting with Ctrl+V...")
+                keyboard.send('ctrl+v')
+                time.sleep(1.5)  # Wait longer for paste to complete
+                
+                # Automatically press Enter to execute
+                print("DEBUG: Auto-executing with Enter...")
                 keyboard.send('enter')
+                time.sleep(0.5)  # Wait for command to be accepted
                 
                 print("DEBUG: Automation completed!")
                 self.status_var.set("✅ Instructions pasted - Alt+Tab used to switch windows")
