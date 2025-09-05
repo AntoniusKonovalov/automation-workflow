@@ -1193,43 +1193,36 @@ class WorkflowAutomator:
     # ========== AI INTEGRATION ==========
     
     def send_to_claude_terminal(self, prompt_text):
-        """Send the generated prompt to the current Claude chat interface using UI Automation"""
+        """Open PowerShell in the project directory"""
         try:
             if not self.project_path:
                 self.status_var.set("⚠️ No project loaded")
                 return
             
-            print(f"DEBUG: Sending to Claude interface: {prompt_text[:100]}...")
+            print(f"DEBUG: Opening PowerShell in project path: {self.project_path}")
             
-            # Copy to clipboard first - this is safe and doesn't affect windows
-            if not self.ui_utils.copy_to_clipboard(prompt_text):
-                self.status_var.set("❌ Failed to copy to clipboard")
-                return
+            # Update status to show we're launching PowerShell
+            self.status_var.set("🔄 Opening PowerShell...")
             
-            # TEMPORARY: Skip all window automation to prevent geometry changes
-            # Just copy to clipboard and let user paste manually
-            self.status_var.set(f"📋 Copied to clipboard - paste manually in Claude")
-            print("DEBUG: Window automation disabled to prevent geometry changes - text copied to clipboard")
-            return
+            # Use subprocess to launch PowerShell without admin privileges
+            import subprocess
             
-            # TODO: Re-enable automation once we identify the root cause
-            # # Method 1: Try UI Automation (most reliable)
-            # if self._try_uia_automation():
-            #     self.status_var.set("✅ Sent to Claude via UI Automation")
-            #     return
-            # 
-            # # Method 2: Try improved window detection with better timing
-            # if self._try_window_automation():
-            #     self.status_var.set("✅ Sent to Claude via Window Automation")
-            #     return
-            # 
-            # # Silent fallback: Just update status (no annoying popup)
-            # self.status_var.set(f"📋 Copied to clipboard - paste in Claude (Project: {os.path.basename(self.project_path)})")
-            # print("DEBUG: All automation methods failed - prompt copied to clipboard for manual paste")
+            # Escape the path for PowerShell
+            escaped_path = self.project_path.replace("'", "''")
+            
+            # Launch regular PowerShell with the project directory and initialize Claude
+            subprocess.run([
+                'powershell', 
+                '-Command', 
+                f'Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd \'{escaped_path}\'; claude"'
+            ])
+            
+            print(f"DEBUG: PowerShell launch command executed for path: {escaped_path}")
+            self.status_var.set("✅ PowerShell opened in project directory")
             
         except Exception as e:
-            print(f"DEBUG: Error in send_to_claude_terminal: {e}")
-            self.status_var.set("❌ Automation failed - check console")
+            print(f"DEBUG: Error opening PowerShell: {e}")
+            self.status_var.set("❌ Failed to open PowerShell - check console")
     
     
     def send_to_ai(self, prompt_type):
