@@ -1228,8 +1228,23 @@ class WorkflowAutomator:
                 # Use single quotes around the entire command to avoid variable expansion issues
                 temp_path_ps = temp_path.replace('\\', '/')  # Use forward slashes for paths
                 
-                # Build the inner command with proper escaping
-                inner_cmd = f"cd '{escaped_path}'; `$prompt = Get-Content '{temp_path_ps}' -Raw; claude -p `$prompt; Remove-Item '{temp_path_ps}' -ErrorAction SilentlyContinue"
+                # Strategy: Use existing Claude session if available, otherwise open interactive Claude
+                # Based on /bashes output, we need to work with interactive Claude sessions
+                
+                inner_cmd = f"""cd '{escaped_path}'; 
+                `$prompt = Get-Content '{temp_path_ps}' -Raw; 
+                Write-Host 'Starting Claude with your prompt...'; 
+                Write-Host 'Prompt preview:' `$prompt.Substring(0, [Math]::Min(100, `$prompt.Length)) '...'; 
+                Write-Host ''; 
+                Set-Clipboard -Value `$prompt; 
+                Write-Host 'Opening interactive Claude and auto-pasting your prompt...'; 
+                Start-Job -ScriptBlock {{
+                    Start-Sleep -Seconds 2; 
+                    Add-Type -AssemblyName System.Windows.Forms; 
+                    [System.Windows.Forms.SendKeys]::SendWait('^v{{ENTER}}'); 
+                }} | Out-Null; 
+                claude; 
+                Remove-Item '{temp_path_ps}' -ErrorAction SilentlyContinue"""
                 
                 print(f"DEBUG: Inner PowerShell command: {inner_cmd[:150]}...")
                 
