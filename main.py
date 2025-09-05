@@ -1210,15 +1210,62 @@ class WorkflowAutomator:
             # Escape the path for PowerShell
             escaped_path = self.project_path.replace("'", "''")
             
-            # Launch regular PowerShell with the project directory and initialize Claude
-            subprocess.run([
-                'powershell', 
-                '-Command', 
-                f'Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd \'{escaped_path}\'; claude"'
-            ])
+            # Use temporary file approach to avoid escaping issues
+            import tempfile
+            import os
             
-            print(f"DEBUG: PowerShell launch command executed for path: {escaped_path}")
-            self.status_var.set("✅ PowerShell opened in project directory")
+            # Create temporary file with the prompt
+            try:
+                temp_fd, temp_path = tempfile.mkstemp(suffix='.txt', prefix='claude_prompt_')
+                
+                with os.fdopen(temp_fd, 'w', encoding='utf-8') as temp_file:
+                    temp_file.write(prompt_text)
+                
+                print(f"DEBUG: Created temp file: {temp_path}")
+                print(f"DEBUG: Prompt length: {len(prompt_text)} characters")
+                
+                # Build PowerShell command using Get-Content to read the file
+                # Use single quotes around the entire command to avoid variable expansion issues
+                temp_path_ps = temp_path.replace('\\', '/')  # Use forward slashes for paths
+                
+                # Build the inner command with proper escaping
+                inner_cmd = f"cd '{escaped_path}'; `$prompt = Get-Content '{temp_path_ps}' -Raw; claude -p `$prompt; Remove-Item '{temp_path_ps}' -ErrorAction SilentlyContinue"
+                
+                print(f"DEBUG: Inner PowerShell command: {inner_cmd[:150]}...")
+                
+                # Launch PowerShell with the temp file approach
+                result = subprocess.run([
+                    'powershell', 
+                    '-Command', 
+                    f'Start-Process powershell -ArgumentList "-NoExit", "-Command", \"{inner_cmd}\"'
+                ], capture_output=True, text=True, timeout=10)
+                
+                print(f"DEBUG: Subprocess return code: {result.returncode}")
+                if result.stdout:
+                    print(f"DEBUG: Subprocess stdout: {result.stdout}")
+                if result.stderr:
+                    print(f"DEBUG: Subprocess stderr: {result.stderr}")
+                
+                if result.returncode == 0:
+                    print(f"DEBUG: PowerShell launch command executed successfully")
+                    self.status_var.set("✅ PowerShell opened with Claude prompt")
+                else:
+                    print(f"DEBUG: PowerShell command failed with return code: {result.returncode}")
+                    # Clean up temp file if command failed
+                    try:
+                        os.unlink(temp_path)
+                    except:
+                        pass
+                    self.status_var.set(f"❌ PowerShell failed (code {result.returncode})")
+                    
+            except Exception as temp_error:
+                print(f"DEBUG: Temp file error: {temp_error}")
+                self.status_var.set(f"❌ Temp file error: {str(temp_error)}")
+                try:
+                    if 'temp_path' in locals():
+                        os.unlink(temp_path)
+                except:
+                    pass
             
         except Exception as e:
             print(f"DEBUG: Error opening PowerShell: {e}")
