@@ -266,3 +266,45 @@ Instructions for the orchestrator:
         
         # Auto-scroll to bottom
         self.analysis_text.see(tk.END)
+    
+    def display_session_history(self, session):
+        """Display all entries from a chat session"""
+        self.analysis_text.delete(1.0, tk.END)
+        
+        if not session.entries:
+            self.analysis_text.insert('1.0', f"Session: {session.session_name}\n\nNo conversations yet. Start chatting with AI!")
+            return
+        
+        # Add session header
+        session_header = f"📝 Session: {session.session_name}\n"
+        session_header += f"🕒 Created: {session.get_formatted_date()}\n"
+        session_header += f"💬 {len(session.entries)} conversations\n"
+        session_header += "="*60 + "\n\n"
+        
+        self.analysis_text.insert(tk.END, session_header)
+        
+        # Display each entry
+        for i, entry in enumerate(session.entries, 1):
+            # Entry separator
+            if i > 1:
+                self.analysis_text.insert(tk.END, "\n" + "="*60 + "\n\n")
+            
+            # Entry header
+            timestamp = entry.get_formatted_time()
+            prompt_type = "🎭" if entry.prompt_type == "orchestrator" else "✏️"
+            header = f"{i}. {prompt_type} {entry.prompt_type.upper()} [{timestamp}]:\n"
+            self.analysis_text.insert(tk.END, header)
+            
+            # Prompt text
+            self.analysis_text.insert(tk.END, f"Q: {entry.prompt_text}\n\n")
+            
+            # Response text
+            self.analysis_text.insert(tk.END, f"🤖 RESPONSE:\n{entry.response_text}\n")
+            
+            # Token info if available
+            if entry.token_usage and entry.token_usage.get('total_tokens', 0) > 0:
+                tokens = entry.token_usage.get('total_tokens', 0)
+                self.analysis_text.insert(tk.END, f"\n🔢 Tokens: {tokens:,} | Model: {entry.model_used}")
+        
+        # Auto-scroll to bottom
+        self.analysis_text.see(tk.END)

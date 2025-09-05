@@ -7,7 +7,7 @@ from .git_manager import GitManager
 from .file_manager import FileManager, ChangedFile
 from .api_client import APIClient
 from .ui_utils import UIUtils, ToolTip, CustomScrollbar
-from .chat_history_manager import ChatHistoryManager, ChatEntry
+from .chat_history_manager import ChatHistoryManager, ChatEntry, ChatSession
 
 __all__ = [
     'ThemeManager',
@@ -19,5 +19,6 @@ __all__ = [
     'ToolTip',
     'CustomScrollbar',
     'ChatHistoryManager',
-    'ChatEntry'
+    'ChatEntry',
+    'ChatSession'
 ]

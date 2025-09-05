@@ -183,8 +183,58 @@ class WorkflowAutomator:
             self.is_maximized = True
     
     def close_window(self):
-        """Close the application"""
+        """Handle window close with session save dialog"""
+        # Check if there's an active session with unsaved changes
+        if (self.chat_history_manager.current_session and 
+            self.chat_history_manager.current_session.entries and 
+            not self.chat_history_manager.current_session.is_saved):
+            
+            # Show save session dialog
+            result = self.show_save_session_dialog()
+            
+            if result == "save":
+                # Mark session as saved
+                self.chat_history_manager.current_session.is_saved = True
+                self.chat_history_manager.save_project_sessions()
+                self.status_var.set("Session saved")
+            elif result == "discard":
+                # Don't save, just close
+                pass
+            elif result == "cancel":
+                # Cancel closing
+                return
+        
+        # Save all sessions before closing
+        if self.chat_history_manager.current_project_path:
+            self.chat_history_manager.save_project_sessions()
+        
         self.root.destroy()
+    
+    def show_save_session_dialog(self):
+        """Show dialog asking if user wants to save current session"""
+        from tkinter import messagebox
+        
+        session = self.chat_history_manager.current_session
+        session_name = session.session_name if session else "Current Session"
+        entry_count = len(session.entries) if session else 0
+        
+        dialog_message = f"Save chat session '{session_name}'?\n\n"
+        dialog_message += f"This session contains {entry_count} conversation(s).\n"
+        dialog_message += "Your progress will be lost if you don't save it."
+        
+        # Custom dialog with three options
+        result = messagebox.askyesnocancel(
+            "Save Session", 
+            dialog_message,
+            icon='question'
+        )
+        
+        if result is True:
+            return "save"
+        elif result is False:
+            return "discard" 
+        else:
+            return "cancel"
     
     def setup_header(self, main_frame):
         """Create the header with project path and API status"""
@@ -384,7 +434,7 @@ class WorkflowAutomator:
         self.model_indicator = model_indicator
     
     def setup_chat_history_panel(self, main_frame):
-        """Create the expandable chat history panel"""
+        """Create the expandable chat history panel with session list"""
         self.history_frame = ttk.Frame(main_frame, style='Card.TFrame')
         # Don't grid yet - will be shown when toggled
         
@@ -392,7 +442,7 @@ class WorkflowAutomator:
         history_header = ttk.Frame(self.history_frame, style='TFrame')
         history_header.pack(fill=tk.X, padx=10, pady=(10, 5))
         
-        history_label = ttk.Label(history_header, text="💬 Chat History:",
+        history_label = ttk.Label(history_header, text="💬 Chat Sessions:",
                                  style='Heading.TLabel')
         history_label.pack(side=tk.LEFT)
         
@@ -400,46 +450,66 @@ class WorkflowAutomator:
         history_buttons = ttk.Frame(history_header, style='TFrame')
         history_buttons.pack(side=tk.RIGHT)
         
+        new_session_btn = ttk.Button(history_buttons, text="New",
+                                    command=self.start_new_session,
+                                    style='Accent.TButton')
+        new_session_btn.pack(side=tk.LEFT, padx=2)
+        self.ui_utils.bind_hover_cursor(new_session_btn)
+        self.ui_utils.add_tooltip(new_session_btn, "Start New Session")
+        
         clear_history_btn = ttk.Button(history_buttons, text="Clear All",
                                       command=self.clear_chat_history,
                                       style='TButton')
         clear_history_btn.pack(side=tk.LEFT, padx=2)
         self.ui_utils.bind_hover_cursor(clear_history_btn)
+        self.ui_utils.add_tooltip(clear_history_btn, "Clear All Sessions")
         
-        # Chat history list with scrollbar
-        history_list_frame = ttk.Frame(self.history_frame, style='TFrame')
-        history_list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+        # Session list with scrollbar - no padding for full width
+        sessions_list_frame = ttk.Frame(self.history_frame, style='TFrame')
+        sessions_list_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=(0, 0))
         
-        # Create custom scrollable text area for chat history
-        history_text_frame = ttk.Frame(history_list_frame, style='TFrame')
-        history_text_frame.pack(fill=tk.BOTH, expand=True)
+        # Create custom scrollable frame with no padding for full-width sessions
+        canvas_frame = tk.Frame(sessions_list_frame)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)  # No padding
         
-        self.history_text = tk.Text(
-            history_text_frame,
-            wrap=tk.WORD,
-            height=25,  # Increased height
-            width=50,   # Set minimum width
-            font=self.theme_manager.fonts['small'],  # Smaller font to fit more
-            bg=self.theme_manager.colors['chat_ai'],
-            fg=self.theme_manager.colors['text_primary'],
-            state='disabled',  # Read-only
-            highlightthickness=0,
-            borderwidth=0
+        sessions_canvas = tk.Canvas(canvas_frame, 
+                                   bg=self.theme_manager.colors['bg_primary'],
+                                   highlightthickness=0,
+                                   borderwidth=0)
+        
+        sessions_scrollbar = CustomScrollbar(canvas_frame, orient=tk.VERTICAL, 
+                                            command=sessions_canvas.yview)
+        self.sessions_container = tk.Frame(sessions_canvas, bg=self.theme_manager.colors['bg_primary'])
+        
+        self.sessions_container.bind(
+            "<Configure>",
+            lambda e: sessions_canvas.configure(scrollregion=sessions_canvas.bbox("all"))
         )
-        self.history_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        # Add custom scrollbar
-        history_scrollbar = CustomScrollbar(history_text_frame, orient=tk.VERTICAL, 
-                                          command=self.history_text.yview)
-        history_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.history_text.configure(yscrollcommand=history_scrollbar.set)
+        # Create window that fills the canvas width
+        canvas_window = sessions_canvas.create_window((0, 0), window=self.sessions_container, anchor="nw")
         
-        # Add mousewheel support
-        def on_history_mousewheel(event):
-            self.history_text.yview_scroll(int(-1*(event.delta/120)), "units")
-            history_scrollbar.show_scrollbar()
+        # Configure the frame to match canvas width
+        def configure_frame_width(event=None):
+            canvas_width = sessions_canvas.winfo_width()
+            sessions_canvas.itemconfig(canvas_window, width=canvas_width)
         
-        self.history_text.bind("<MouseWheel>", on_history_mousewheel)
+        sessions_canvas.bind('<Configure>', configure_frame_width)
+        sessions_canvas.configure(yscrollcommand=sessions_scrollbar.set)
+        
+        sessions_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sessions_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Bind mousewheel to canvas
+        def on_sessions_mousewheel(event):
+            sessions_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            sessions_scrollbar.show_scrollbar()
+        
+        sessions_canvas.bind("<MouseWheel>", on_sessions_mousewheel)
+        
+        # Store session widgets for management
+        self.session_widgets = []
+        self.current_session_widget = None
     
     def setup_selected_section(self, container):
         """Set up the Selected for Analysis section"""
@@ -582,61 +652,168 @@ class WorkflowAutomator:
         self.root.after(2000, lambda: self.status_var.set("Ready"))
     
     def refresh_chat_history_display(self):
-        """Refresh the chat history display"""
-        if not hasattr(self, 'history_text'):
+        """Refresh the session list display"""
+        if not hasattr(self, 'sessions_container'):
             return
         
-        # Debug: Check current project and history
-        print(f"DEBUG: Current project: {self.project_path}")
-        print(f"DEBUG: History manager project: {self.chat_history_manager.current_project_path}")
-        
-        # Load project history if needed
+        # Load project sessions if needed
         if self.project_path and self.chat_history_manager.current_project_path != self.project_path:
-            print(f"DEBUG: Loading history for project: {self.project_path}")
-            self.chat_history_manager.load_project_history(self.project_path)
+            print(f"Loading sessions for project: {self.project_path}")
+            self.chat_history_manager.load_project_sessions(self.project_path)
         
-        history_entries = self.chat_history_manager.get_recent_chats(30)  # Last 30 chats
-        print(f"DEBUG: Found {len(history_entries)} history entries")
+        # Clear existing session widgets
+        for widget in self.session_widgets:
+            widget.destroy()
+        self.session_widgets.clear()
+        self.current_session_widget = None
         
-        # Update display
-        self.history_text.config(state='normal')
-        self.history_text.delete('1.0', tk.END)
+        # Get sessions for current project
+        sessions = self.chat_history_manager.get_project_sessions()
         
-        if not history_entries:
-            message = f"No chat history for this project yet.\n\nProject: {self.project_path or 'No project loaded'}\n\nStart a conversation by using the AI analysis features!"
-            self.history_text.insert('1.0', message)
+        if not sessions:
+            # Show empty state
+            empty_label = ttk.Label(self.sessions_container, 
+                                   text="No sessions yet.\nClick 'New' to start!",
+                                   style='Secondary.TLabel',
+                                   justify='center')
+            empty_label.pack(pady=20)
+            self.session_widgets.append(empty_label)
         else:
-            # Add project info at top
-            project_info = f"📁 Project: {self.project_path}\n"
-            project_info += f"💬 {len(history_entries)} chat entries\n"
-            project_info += "=" * 60 + "\n\n"
-            self.history_text.insert(tk.END, project_info)
-            
-            for i, entry in enumerate(history_entries, 1):
-                # Add timestamp and prompt type
-                timestamp = entry.get_formatted_time()
-                prompt_type = "🎭" if entry.prompt_type == "orchestrator" else "✏️"
-                
-                # Header with entry number
-                header = f"{i}. {prompt_type} {timestamp} | {entry.model_used}\n"
-                self.history_text.insert(tk.END, header)
-                
-                # Full prompt text with proper formatting
-                self.history_text.insert(tk.END, f"Q: {entry.prompt_text}\n\n")
-                
-                # Full response text with proper formatting  
-                self.history_text.insert(tk.END, f"A: {entry.response_text}\n\n")
-                
-                # Token info if available
-                if entry.token_usage:
-                    tokens = entry.token_usage.get('total_tokens', 0)
-                    self.history_text.insert(tk.END, f"🔢 Tokens: {tokens:,}\n")
-                
-                # Separator
-                self.history_text.insert(tk.END, "─" * 60 + "\n\n")
+            # Display sessions in reverse order (newest first)
+            for session in reversed(sessions):
+                session_widget = self.create_session_widget(session)
+                self.session_widgets.append(session_widget)
+    
+    def create_session_widget(self, session):
+        """Create a widget for a chat session"""
+        # Session container - full width edge to edge
+        session_frame = tk.Frame(self.sessions_container, 
+                                bg=self.theme_manager.colors['bg_tertiary'],
+                                relief='flat',
+                                bd=0,
+                                highlightthickness=0)
+        session_frame.pack(fill=tk.BOTH, padx=0, pady=1)  # Use BOTH to ensure full width
         
-        self.history_text.config(state='disabled')
-        self.history_text.see(tk.END)  # Scroll to bottom
+        # Session info frame with padding for text
+        info_frame = tk.Frame(session_frame, bg=self.theme_manager.colors['bg_tertiary'])
+        info_frame.pack(fill=tk.BOTH, padx=15, pady=10)  # Padding only for the text content
+        
+        # Session name
+        name_label = tk.Label(info_frame,
+                             text=session.session_name,
+                             font=self.theme_manager.fonts['default'],
+                             fg=self.theme_manager.colors['text_primary'],
+                             bg=self.theme_manager.colors['bg_tertiary'],
+                             anchor='w')
+        name_label.pack(fill=tk.X)
+        
+        # Session details (date and time only)
+        details_text = session.get_formatted_date()
+        details_label = tk.Label(info_frame,
+                                text=details_text,
+                                font=self.theme_manager.fonts['small'],
+                                fg=self.theme_manager.colors['text_secondary'],
+                                bg=self.theme_manager.colors['bg_tertiary'],
+                                anchor='w')
+        details_label.pack(fill=tk.X)
+        
+        # Hover effects
+        def on_enter(event):
+            session_frame.config(bg=self.theme_manager.colors['bg_secondary'])
+            info_frame.config(bg=self.theme_manager.colors['bg_secondary'])
+            name_label.config(bg=self.theme_manager.colors['bg_secondary'])
+            details_label.config(bg=self.theme_manager.colors['bg_secondary'])
+        
+        def on_leave(event):
+            # Don't change if this is the active session
+            if session_frame != self.current_session_widget:
+                session_frame.config(bg=self.theme_manager.colors['bg_tertiary'])
+                info_frame.config(bg=self.theme_manager.colors['bg_tertiary'])
+                name_label.config(bg=self.theme_manager.colors['bg_tertiary'])
+                details_label.config(bg=self.theme_manager.colors['bg_tertiary'])
+        
+        def on_click(event):
+            self.switch_to_session(session.session_id, session_frame)
+        
+        # Bind events to all components
+        for widget in [session_frame, info_frame, name_label, details_label]:
+            widget.bind("<Enter>", on_enter)
+            widget.bind("<Leave>", on_leave)
+            widget.bind("<Button-1>", on_click)
+            widget.config(cursor="hand2")
+        
+        # Highlight if this is the current session
+        if (self.chat_history_manager.current_session and 
+            session.session_id == self.chat_history_manager.current_session.session_id):
+            self.current_session_widget = session_frame
+            session_frame.config(bg=self.theme_manager.colors['accent'])
+            info_frame.config(bg=self.theme_manager.colors['accent'])
+            name_label.config(bg=self.theme_manager.colors['accent'], fg='white')
+            details_label.config(bg=self.theme_manager.colors['accent'], fg='white')
+        
+        return session_frame
+    
+    def start_new_session(self):
+        """Start a new chat session"""
+        if not self.project_path:
+            messagebox.showwarning("No Project", "Please load a project first.")
+            return
+        
+        # Start new session in the chat history manager
+        new_session = self.chat_history_manager.start_new_session()
+        
+        # Refresh the display
+        self.refresh_chat_history_display()
+        
+        # Clear the analysis panel for the new session
+        if hasattr(self.analysis_panel, 'clear_chat'):
+            self.analysis_panel.clear_chat()
+        
+        self.status_var.set("Started new chat session")
+        self.root.after(2000, lambda: self.status_var.set("Ready"))
+    
+    def switch_to_session(self, session_id, session_widget):
+        """Switch to a specific session"""
+        # Switch session in the chat history manager
+        session = self.chat_history_manager.switch_to_session(session_id)
+        
+        if session:
+            # Update visual selection
+            if self.current_session_widget:
+                # Reset previous selection
+                self.current_session_widget.config(bg=self.theme_manager.colors['bg_tertiary'])
+                old_widgets = self.current_session_widget.winfo_children()
+                if old_widgets:
+                    info_frame = old_widgets[0]
+                    info_frame.config(bg=self.theme_manager.colors['bg_tertiary'])
+                    info_widgets = info_frame.winfo_children()
+                    
+                    for widget in info_widgets:
+                        widget.config(bg=self.theme_manager.colors['bg_tertiary'])
+                        if widget.winfo_class() == 'Label':
+                            if len(str(widget.cget('text'))) < 20:  # Name label (shorter text)
+                                widget.config(fg=self.theme_manager.colors['text_primary'])
+                            else:  # Details label (longer text with date)
+                                widget.config(fg=self.theme_manager.colors['text_secondary'])
+            
+            # Highlight new selection
+            self.current_session_widget = session_widget
+            session_widget.config(bg=self.theme_manager.colors['accent'])
+            widgets = session_widget.winfo_children()
+            if widgets:
+                info_frame = widgets[0]
+                info_frame.config(bg=self.theme_manager.colors['accent'])
+                info_widgets = info_frame.winfo_children()
+                
+                for widget in info_widgets:
+                    widget.config(bg=self.theme_manager.colors['accent'], fg='white')
+            
+            # Load session chat history into analysis panel
+            if hasattr(self.analysis_panel, 'display_session_history'):
+                self.analysis_panel.display_session_history(session)
+            
+            self.status_var.set(f"Switched to session: {session.session_name}")
+            self.root.after(2000, lambda: self.status_var.set("Ready"))
     
     def clear_chat_history(self):
         """Clear chat history for current project"""
@@ -658,7 +835,7 @@ class WorkflowAutomator:
         if os.path.exists(os.path.join(current_dir, '.git')):
             print(f"DEBUG: Auto-detected git project: {current_dir}")
             self.project_path = current_dir
-            self.chat_history_manager.load_project_history(current_dir)
+            self.chat_history_manager.load_project_sessions(current_dir)
             
             # Refresh display if history panel is visible
             if not self.history_section_collapsed:
@@ -674,7 +851,7 @@ class WorkflowAutomator:
             self.path_var.set(directory)
             self.project_path = directory
             # Load chat history for this project
-            self.chat_history_manager.load_project_history(directory)
+            self.chat_history_manager.load_project_sessions(directory)
             self.refresh_changed_files()
     
     def refresh_with_reset(self):
