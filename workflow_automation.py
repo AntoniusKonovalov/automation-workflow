@@ -227,6 +227,11 @@ class WorkflowAutomator:
                  background=[('active', self.colors['accent_hover']),
                            ('pressed', self.colors['success'])])
 
+    def bind_hover_cursor(self, widget):
+        """Bind hand cursor on hover for interactive widgets"""
+        widget.bind("<Enter>", lambda e: widget.configure(cursor="hand2"))
+        widget.bind("<Leave>", lambda e: widget.configure(cursor=""))
+    
     def determine_preferred_api(self):
         """Determine which API to use based on available keys"""
         if self.anthropic_api_key:
@@ -377,8 +382,9 @@ class WorkflowAutomator:
         self.path_var = tk.StringVar()
         ttk.Entry(main_frame, textvariable=self.path_var, width=50, style='TEntry').grid(
             row=0, column=1, sticky=(tk.W, tk.E), padx=(150, 5))  # Offset for label
-        ttk.Button(main_frame, text="Browse", command=self.browse_project, style='TButton').grid(
-            row=0, column=2, padx=(0, 10))
+        browse_btn = ttk.Button(main_frame, text="Browse", command=self.browse_project, style='TButton')
+        browse_btn.grid(row=0, column=2, padx=(0, 10))
+        self.bind_hover_cursor(browse_btn)
 
         # API status and key management
         api_status = self.get_api_status()
@@ -398,8 +404,10 @@ class WorkflowAutomator:
                              width=50, state='readonly')
         api_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(150, 5))
         
-        ttk.Button(main_frame, text="Refresh Files",
-                   command=self.refresh_changed_files).grid(row=1, column=2, padx=(0, 10))
+        refresh_btn = ttk.Button(main_frame, text="Refresh Files",
+                   command=self.refresh_changed_files)
+        refresh_btn.grid(row=1, column=2, padx=(0, 10))
+        self.bind_hover_cursor(refresh_btn)
 
         # Paned window for split view with ChatGPT-style sash
         self.main_paned = tk.PanedWindow(main_frame, 
@@ -444,6 +452,7 @@ class WorkflowAutomator:
                                           command=self.toggle_files_section, style='Sidebar.TButton',
                                           width=3)
         self.files_toggle_btn.pack()
+        self.bind_hover_cursor(self.files_toggle_btn)
         
         # Start with the section collapsed
         self.main_paned.forget(self.left_frame)
@@ -457,10 +466,15 @@ class WorkflowAutomator:
         header_buttons = ttk.Frame(files_header_frame, style='TFrame')
         header_buttons.pack(side=tk.RIGHT)
         
-        ttk.Button(header_buttons, text="Restart",
-                   command=self.restart_application, style='TButton').pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(header_buttons, text="Collapse All",
-                   command=self.collapse_all_files, style='TButton').pack(side=tk.LEFT)
+        restart_btn = ttk.Button(header_buttons, text="Restart",
+                   command=self.restart_application, style='TButton')
+        restart_btn.pack(side=tk.LEFT, padx=(0, 5))
+        self.bind_hover_cursor(restart_btn)
+        
+        collapse_btn = ttk.Button(header_buttons, text="Collapse All",
+                   command=self.collapse_all_files, style='TButton')
+        collapse_btn.pack(side=tk.LEFT)
+        self.bind_hover_cursor(collapse_btn)
 
         # Scrollable frame for file list
         self.canvas_frame = ttk.Frame(self.left_frame, style='TFrame')
@@ -524,12 +538,22 @@ class WorkflowAutomator:
         self.expand_selected_btn = ttk.Button(button_frame, text="Expand ↓",
                    command=self.toggle_selected_size, style='TButton')
         self.expand_selected_btn.pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Copy All",
-                   command=self.copy_all_selected, style='TButton').pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Append All",
-                   command=self.append_all_files, style='TButton').pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Clear All",
-                   command=self.clear_selection, style='TButton').pack(side=tk.LEFT, padx=2)
+        self.bind_hover_cursor(self.expand_selected_btn)
+        
+        copy_all_btn = ttk.Button(button_frame, text="Copy All",
+                   command=self.copy_all_selected, style='TButton')
+        copy_all_btn.pack(side=tk.LEFT, padx=2)
+        self.bind_hover_cursor(copy_all_btn)
+        
+        append_all_btn = ttk.Button(button_frame, text="Append All",
+                   command=self.append_all_files, style='TButton')
+        append_all_btn.pack(side=tk.LEFT, padx=2)
+        self.bind_hover_cursor(append_all_btn)
+        
+        clear_all_btn = ttk.Button(button_frame, text="Clear All",
+                   command=self.clear_selection, style='TButton')
+        clear_all_btn.pack(side=tk.LEFT, padx=2)
+        self.bind_hover_cursor(clear_all_btn)
 
         # Selected files text area
         selected_frame = ttk.Frame(selected_container, style='TFrame')
@@ -585,13 +609,17 @@ class WorkflowAutomator:
         self.toggle_orchestrator_btn = ttk.Button(analysis_buttons, text="Orchestrator ▼",
                    command=self.toggle_orchestrator_section, style='TButton')
         self.toggle_orchestrator_btn.pack(side=tk.LEFT, padx=2)
+        self.bind_hover_cursor(self.toggle_orchestrator_btn)
         
         self.toggle_prompt_btn = ttk.Button(analysis_buttons, text="Prompt ▼",
                    command=self.toggle_prompt_section, style='TButton')
         self.toggle_prompt_btn.pack(side=tk.LEFT, padx=2)
+        self.bind_hover_cursor(self.toggle_prompt_btn)
         
-        ttk.Button(analysis_buttons, text="Clear Chat",
-                   command=self.clear_chat_history, style='Accent.TButton').pack(side=tk.LEFT, padx=2)
+        clear_chat_btn = ttk.Button(analysis_buttons, text="Clear Chat",
+                   command=self.clear_chat_history, style='Accent.TButton')
+        clear_chat_btn.pack(side=tk.LEFT, padx=2)
+        self.bind_hover_cursor(clear_chat_btn)
 
         # Collapsible orchestrator section (hidden by default)
         self.orchestrator_frame = ttk.Frame(analysis_container, style='TFrame')
@@ -635,6 +663,7 @@ class WorkflowAutomator:
                                               variable=self.orchestrator_automated_var,
                                               style='TCheckbutton')
         orchestrator_auto_cb.pack(side=tk.LEFT, padx=(0, 10))
+        self.bind_hover_cursor(orchestrator_auto_cb)
         
         if self.preferred_api == 'anthropic':
             orch_send_text = "Send to Claude"
@@ -643,9 +672,11 @@ class WorkflowAutomator:
         else:
             orch_send_text = "Send to AI"
             
-        ttk.Button(orchestrator_btn_frame, text=orch_send_text,
+        orch_send_btn = ttk.Button(orchestrator_btn_frame, text=orch_send_text,
                    command=lambda: self.send_to_ai_with_specific_prompt('orchestrator'),
-                   style='Accent.TButton').pack(side=tk.LEFT)
+                   style='Accent.TButton')
+        orch_send_btn.pack(side=tk.LEFT)
+        self.bind_hover_cursor(orch_send_btn)
         
         # Set default orchestrator prompt text
         default_orchestrator = """Generate a text prompt for orchestrator Claude agent with clear instructions for fixing this issue.
@@ -700,6 +731,7 @@ Instructions for the orchestrator:
                                         variable=self.prompt_automated_var,
                                         style='TCheckbutton')
         prompt_auto_cb.pack(side=tk.LEFT, padx=(0, 10))
+        self.bind_hover_cursor(prompt_auto_cb)
         
         if self.preferred_api == 'anthropic':
             prompt_send_text = "Send to Claude"
@@ -708,9 +740,11 @@ Instructions for the orchestrator:
         else:
             prompt_send_text = "Send to AI"
             
-        ttk.Button(prompt_btn_frame, text=prompt_send_text,
+        prompt_send_btn = ttk.Button(prompt_btn_frame, text=prompt_send_text,
                    command=lambda: self.send_to_ai_with_specific_prompt('prompt'),
-                   style='Accent.TButton').pack(side=tk.LEFT)
+                   style='Accent.TButton')
+        prompt_send_btn.pack(side=tk.LEFT)
+        self.bind_hover_cursor(prompt_send_btn)
         
         # Set default prompt text
         default_prompt = "Make a deep analysis of these code changes. Focus on:\n- Code quality and potential issues\n- Suggestions for improvements\n- Security considerations\n- Performance implications"
@@ -909,6 +943,7 @@ Instructions for the orchestrator:
             path_menu = ttk.Menubutton(
                 buttons_frame, textvariable=path_var, width=12, style='TButton')
             path_menu.pack(side=tk.LEFT, padx=2)
+            self.bind_hover_cursor(path_menu)
 
             path_dropdown = tk.Menu(path_menu, tearoff=0,
                                    bg=self.colors['bg_secondary'],
@@ -927,24 +962,28 @@ Instructions for the orchestrator:
                                          command=lambda f=file_obj: self.copy_and_append(f),
                                          style='TButton')
             copy_append_btn.pack(side=tk.LEFT, padx=2)
+            self.bind_hover_cursor(copy_append_btn)
 
             # Show Content button
             show_btn = ttk.Button(buttons_frame, text="Show Content",
                                   command=lambda f=file_obj, idx=i: self.toggle_content(f, idx),
                                   style='TButton')
             show_btn.pack(side=tk.LEFT, padx=2)
+            self.bind_hover_cursor(show_btn)
 
             # Select checkbox
             select_var = tk.BooleanVar()
             select_cb = ttk.Checkbutton(buttons_frame, text="Select", variable=select_var,
                                         command=lambda f=file_obj, var=select_var: self.toggle_selection(f, var))
             select_cb.pack(side=tk.LEFT, padx=2)
+            self.bind_hover_cursor(select_cb)
 
             # Remove button
             remove_btn = ttk.Button(buttons_frame, text="Remove",
                                     command=lambda f=file_obj: self.remove_file(f),
                                     style='TButton')
             remove_btn.pack(side=tk.LEFT, padx=2)
+            self.bind_hover_cursor(remove_btn)
 
             # Store references for later access
             file_obj.widgets = {
@@ -1220,6 +1259,7 @@ Instructions for the orchestrator:
                                      command=lambda: self.refresh_changed_files(),
                                      style='TButton')
             refresh_btn.pack(side=tk.RIGHT)
+            self.bind_hover_cursor(refresh_btn)
 
             file_obj.widgets['content_frame'] = error_frame
         else:
@@ -1231,9 +1271,11 @@ Instructions for the orchestrator:
             controls_frame = ttk.Frame(content_frame, style='TFrame')
             controls_frame.pack(fill=tk.X, pady=(0, 8))
 
-            ttk.Button(controls_frame, text="Copy Content",
+            copy_content_btn = ttk.Button(controls_frame, text="Copy Content",
                        command=lambda: self.copy_content(file_obj),
-                       style='TButton').pack(side=tk.LEFT)
+                       style='TButton')
+            copy_content_btn.pack(side=tk.LEFT)
+            self.bind_hover_cursor(copy_content_btn)
 
             # Content text area
             content_text = scrolledtext.ScrolledText(content_frame, 
@@ -1706,8 +1748,10 @@ Instructions for the orchestrator:
         try:
             import pyperclip
             import time
+            import os
+            import subprocess
             
-            print(f"DEBUG: Starting simplified automation process...")
+            print(f"DEBUG: Starting automation for project: {self.project_path}")
             
             # Copy the analysis to clipboard
             pyperclip.copy(analysis)
@@ -1718,43 +1762,139 @@ Instructions for the orchestrator:
             print(f"DEBUG: Clipboard verification - matches: {clipboard_content == analysis}")
             
             try:
-                # Use keyboard module for automation
+                # Option 1: Try to open a new terminal with Claude in the project path
+                # This ensures we're always in the right directory
+                try:
+                    print(f"DEBUG: Opening new Claude terminal in: {self.project_path}")
+                    
+                    # Open Windows Terminal (or cmd) in the project directory with Claude
+                    # Using Windows Terminal if available, otherwise cmd
+                    cmd_command = f'cd /d "{self.project_path}" && claude'
+                    
+                    # Try Windows Terminal first
+                    try:
+                        subprocess.Popen(['wt', '-d', self.project_path, 'cmd', '/k', 'claude'], 
+                                       shell=False, cwd=self.project_path)
+                        print("DEBUG: Opened Windows Terminal with Claude")
+                        time.sleep(3.0)  # Give time for Claude to start
+                    except:
+                        # Fallback to regular cmd
+                        subprocess.Popen(['cmd', '/k', cmd_command], 
+                                       shell=True, cwd=self.project_path)
+                        print("DEBUG: Opened CMD with Claude")
+                        time.sleep(3.0)  # Give time for Claude to start
+                    
+                    # Now paste to the newly opened Claude terminal
+                    import keyboard
+                    print("DEBUG: Pasting to new Claude terminal...")
+                    keyboard.send('ctrl+v')
+                    time.sleep(1.0)
+                    keyboard.send('enter')
+                    
+                    print("DEBUG: Automation completed with new terminal!")
+                    self.status_var.set(f"✅ Opened Claude in {os.path.basename(self.project_path)} and pasted")
+                    return
+                    
+                except Exception as e:
+                    print(f"DEBUG: Could not open new terminal: {e}")
+                    # Fall through to next method
+                
+                # Option 2: Try to find existing Claude window that matches the project
+                try:
+                    import pygetwindow as gw
+                    import keyboard
+                    
+                    print(f"DEBUG: Looking for existing Claude terminal for project: {self.project_path}")
+                    
+                    # Get project folder name for matching
+                    project_name = os.path.basename(self.project_path)
+                    
+                    # Find windows with Claude and potentially the project name
+                    best_match = None
+                    all_claude = []
+                    
+                    for window in gw.getAllWindows():
+                        if window.title and 'claude' in window.title.lower():
+                            all_claude.append(window)
+                            # Check if window title contains the project folder name
+                            if project_name and project_name.lower() in window.title.lower():
+                                best_match = window
+                                print(f"DEBUG: Found matching Claude window: '{window.title}'")
+                                break
+                    
+                    # Use best match or any Claude window
+                    target_window = best_match or (all_claude[0] if all_claude else None)
+                    
+                    if target_window:
+                        print(f"DEBUG: Using Claude window: '{target_window.title}'")
+                        
+                        # Activate the window
+                        try:
+                            if target_window.isMaximized:
+                                target_window.restore()
+                            target_window.activate()
+                        except:
+                            target_window.minimize()
+                            time.sleep(0.1)
+                            target_window.restore()
+                        
+                        time.sleep(1.5)
+                        
+                        # If it's not the best match, send cd command first
+                        if not best_match and all_claude:
+                            print(f"DEBUG: Changing directory to: {self.project_path}")
+                            # Clear any existing input and change directory
+                            keyboard.send('ctrl+c')  # Clear current input
+                            time.sleep(0.3)
+                            keyboard.write(f'cd "{self.project_path}"')
+                            keyboard.send('enter')
+                            time.sleep(1.0)
+                        
+                        # Now paste the analysis
+                        print("DEBUG: Pasting with Ctrl+V...")
+                        keyboard.send('ctrl+v')
+                        time.sleep(1.0)
+                        keyboard.send('enter')
+                        
+                        print("DEBUG: Automation completed!")
+                        self.status_var.set(f"✅ Pasted to Claude in {project_name}")
+                        return
+                        
+                except ImportError:
+                    print("DEBUG: pygetwindow not available")
+                
+                # Option 3: Simple fallback - just use Alt+Tab but show project path
                 import keyboard
-                print(f"DEBUG: Keyboard module imported successfully")
+                print(f"DEBUG: Simple fallback - ensure Claude is in: {self.project_path}")
                 
-                # Try multiple Alt+Tab presses to find Claude window
-                print("DEBUG: Using Alt+Tab to switch to Claude terminal...")
+                # Switch to last active window
                 keyboard.send('alt+tab')
-                time.sleep(0.5)
+                time.sleep(1.0)
                 
-                # Try a second Alt+Tab if needed (in case there are multiple windows)
-                print("DEBUG: Sending second Alt+Tab if needed...")
-                keyboard.send('alt+tab')
-                time.sleep(0.5)
+                # Send cd command to ensure we're in the right directory
+                print(f"DEBUG: Sending cd command to: {self.project_path}")
+                keyboard.send('ctrl+c')  # Clear any current input
+                time.sleep(0.3)
+                keyboard.write(f'cd "{self.project_path}"')
+                keyboard.send('enter')
+                time.sleep(1.0)
                 
-                # Give extra time for window focus and Claude to be ready
-                print("DEBUG: Waiting 3 seconds for Claude terminal to be ready...")
-                time.sleep(3.0)
-                
-                # Now paste the instructions
+                # Paste the instructions
                 print("DEBUG: Pasting with Ctrl+V...")
                 keyboard.send('ctrl+v')
-                time.sleep(1.5)  # Wait longer for paste to complete
-                
-                # Automatically press Enter to execute
-                print("DEBUG: Auto-executing with Enter...")
+                time.sleep(1.0)
                 keyboard.send('enter')
-                time.sleep(0.5)  # Wait for command to be accepted
                 
                 print("DEBUG: Automation completed!")
-                self.status_var.set("✅ Instructions pasted - Alt+Tab used to switch windows")
+                self.status_var.set(f"✅ Pasted to terminal (cd to {os.path.basename(self.project_path)})")
                 
             except ImportError:
                 print("DEBUG: Keyboard module not available")
-                self.status_var.set("📋 Instructions copied to clipboard - Paste manually with Ctrl+V")
+                self.status_var.set(f"📋 Copied! cd to {self.project_path} and paste")
+                
             except Exception as e:
-                print(f"DEBUG: Keyboard error: {e}")
-                self.status_var.set("📋 Instructions copied to clipboard - Automation failed, paste manually")
+                print(f"DEBUG: Automation error: {e}")
+                self.status_var.set("📋 Copied to clipboard - Paste manually")
         
         except ImportError:
             print("DEBUG: pyperclip not available")
