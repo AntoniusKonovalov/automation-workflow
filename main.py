@@ -604,6 +604,9 @@ class WorkflowAutomator:
             command=lambda: self.send_to_ai('orchestrator'))
         self.analysis_panel.prompt_send_btn.configure(
             command=lambda: self.send_to_ai('prompt'))
+        
+        # Set up send to agent callback
+        self.analysis_panel.send_to_agent_callback = self.send_to_claude_terminal
     
     # ========== EVENT HANDLERS ==========
     
@@ -1189,6 +1192,46 @@ class WorkflowAutomator:
     
     # ========== AI INTEGRATION ==========
     
+    def send_to_claude_terminal(self, prompt_text):
+        """Send the generated prompt to the current Claude chat interface using UI Automation"""
+        try:
+            if not self.project_path:
+                self.status_var.set("⚠️ No project loaded")
+                return
+            
+            print(f"DEBUG: Sending to Claude interface: {prompt_text[:100]}...")
+            
+            # Copy to clipboard first - this is safe and doesn't affect windows
+            if not self.ui_utils.copy_to_clipboard(prompt_text):
+                self.status_var.set("❌ Failed to copy to clipboard")
+                return
+            
+            # TEMPORARY: Skip all window automation to prevent geometry changes
+            # Just copy to clipboard and let user paste manually
+            self.status_var.set(f"📋 Copied to clipboard - paste manually in Claude")
+            print("DEBUG: Window automation disabled to prevent geometry changes - text copied to clipboard")
+            return
+            
+            # TODO: Re-enable automation once we identify the root cause
+            # # Method 1: Try UI Automation (most reliable)
+            # if self._try_uia_automation():
+            #     self.status_var.set("✅ Sent to Claude via UI Automation")
+            #     return
+            # 
+            # # Method 2: Try improved window detection with better timing
+            # if self._try_window_automation():
+            #     self.status_var.set("✅ Sent to Claude via Window Automation")
+            #     return
+            # 
+            # # Silent fallback: Just update status (no annoying popup)
+            # self.status_var.set(f"📋 Copied to clipboard - paste in Claude (Project: {os.path.basename(self.project_path)})")
+            # print("DEBUG: All automation methods failed - prompt copied to clipboard for manual paste")
+            
+        except Exception as e:
+            print(f"DEBUG: Error in send_to_claude_terminal: {e}")
+            self.status_var.set("❌ Automation failed - check console")
+    
+    
     def send_to_ai(self, prompt_type):
         """Send selected files to AI for analysis"""
         if not self.api_client.preferred_api:
@@ -1253,6 +1296,13 @@ class WorkflowAutomator:
             self.root.after(0, lambda: self.analysis_panel.display_analysis(
                 result, prompt_type, prompt))
             self.root.after(0, lambda: self.status_var.set("Analysis complete"))
+            
+            # If automated checkbox is checked, send result to Claude CLI automatically
+            if automated:
+                print(f"DEBUG: Automation enabled - will send result to Claude")
+                self.root.after(1000, lambda: self.send_to_claude_terminal(result))  # Small delay to let UI update
+            else:
+                print(f"DEBUG: Automation disabled - result will not be auto-sent")
             
             # Update token display and refresh history if visible
             self.root.after(0, self.update_token_display)

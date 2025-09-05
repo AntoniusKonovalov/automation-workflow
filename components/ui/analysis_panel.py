@@ -24,6 +24,7 @@ class AnalysisPanel:
         self.prompt_expanded = False
         self.orchestrator_expanded = False
         self.chat_history = []
+        self.send_to_agent_callback = None  # Will be set by main app
         
         self.setup_ui()
     
@@ -262,10 +263,104 @@ Instructions for the orchestrator:
             self.analysis_text.insert(tk.END, f"{display_prompt}\n\n")
         
         # Insert response
+        response_start = self.analysis_text.index(tk.END)
         self.analysis_text.insert(tk.END, f"🤖 RESPONSE:\n{analysis}")
+        response_end = self.analysis_text.index(tk.END)
+        
+        # Add "Send to Agent" button after the response
+        self.add_send_to_agent_button(analysis, response_end)
         
         # Auto-scroll to bottom
         self.analysis_text.see(tk.END)
+    
+    def add_send_to_agent_button(self, response_text, position):
+        """Add a 'Send to Agent' button after the response"""
+        print(f"DEBUG: Adding Send to Agent button for response: {response_text[:50]}...")
+        
+        try:
+            # Add spacing before button
+            self.analysis_text.insert(tk.END, "\n\n")
+            
+            # Create a frame that spans the full width for right alignment
+            button_container = tk.Frame(self.analysis_text, bg=self.theme.colors['chat_ai'])
+            
+            # Create the button with custom styling
+            send_button = tk.Button(button_container,
+                                  text="Send to Agent →",
+                                  font=self.theme.fonts['button'],
+                                  fg='#10a37f',  # Green text
+                                  bg=self.theme.colors['chat_ai'],  # Match background
+                                  activeforeground='#1a7f64',  # Darker green on click
+                                  activebackground=self.theme.colors['chat_ai'],
+                                  relief='solid',  # Solid relief for grey border
+                                  borderwidth=1,
+                                  bd=1,
+                                  highlightthickness=0,
+                                  cursor='hand2',
+                                  padx=15,
+                                  pady=5,
+                                  command=lambda text=response_text: self.handle_send_to_agent(text))
+            
+            # Pack button to the right of the container
+            send_button.pack(side=tk.RIGHT, padx=(0, 20), pady=(0, 5))
+            
+            # Insert the container frame into the text widget
+            self.analysis_text.window_create(tk.END, window=button_container, stretch=True)
+            
+            # Add final spacing
+            self.analysis_text.insert(tk.END, "\n")
+            
+            print("DEBUG: Send to Agent button added successfully!")
+            
+        except Exception as e:
+            print(f"DEBUG: Error adding Send to Agent button: {e}")
+            # Fallback: just add text indicating where button should be
+            self.analysis_text.insert(tk.END, "\n[Send to Agent button should appear here]\n")
+    
+    def handle_send_to_agent(self, response_text):
+        """Handle the Send to Agent button click"""
+        print(f"DEBUG: Send to Agent button clicked!")
+        print(f"DEBUG: Response text length: {len(response_text)}")
+        print(f"DEBUG: Callback available: {self.send_to_agent_callback is not None}")
+        
+        # Get main window and preserve its geometry
+        main_window = None
+        original_geometry = None
+        
+        try:
+            # Get main window reference (traverse up the widget hierarchy)
+            main_window = self.parent
+            while main_window and not hasattr(main_window, 'geometry'):
+                main_window = main_window.master if hasattr(main_window, 'master') else main_window.winfo_parent()
+            
+            if main_window and hasattr(main_window, 'geometry'):
+                original_geometry = main_window.geometry()
+                print(f"DEBUG: Preserving main window geometry: {original_geometry}")
+        except Exception as e:
+            print(f"DEBUG: Error getting main window geometry: {e}")
+        
+        if self.send_to_agent_callback:
+            try:
+                print("DEBUG: Calling send_to_agent_callback...")
+                self.send_to_agent_callback(response_text)
+                print("DEBUG: Callback completed successfully")
+                
+                # Restore original geometry if it changed
+                if main_window and original_geometry:
+                    try:
+                        current_geometry = main_window.geometry()
+                        if current_geometry != original_geometry:
+                            print(f"DEBUG: Restoring window geometry from {current_geometry} to {original_geometry}")
+                            main_window.geometry(original_geometry)
+                    except Exception as restore_error:
+                        print(f"DEBUG: Error restoring geometry: {restore_error}")
+                        
+            except Exception as e:
+                print(f"DEBUG: Error in callback: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"DEBUG: No callback set - response text: {response_text[:100]}...")
     
     def display_session_history(self, session):
         """Display all entries from a chat session"""
