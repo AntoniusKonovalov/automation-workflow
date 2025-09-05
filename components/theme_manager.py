@@ -195,3 +195,107 @@ class ThemeManager:
         style.map('SidebarLoading.TButton',
                  background=[('active', '#dc2626'),
                            ('pressed', '#ef4444')])
+        
+        # Configure stylish scrollbars with no background and rounded handles
+        # Vertical Scrollbar
+        style.configure('Vertical.TScrollbar',
+                       background=self.colors['bg_primary'],  # Make background invisible
+                       troughcolor=self.colors['bg_primary'],  # Hide trough
+                       borderwidth=0,
+                       arrowcolor=self.colors['bg_primary'],  # Hide arrows
+                       darkcolor=self.colors['bg_primary'],
+                       lightcolor=self.colors['bg_primary'],
+                       relief='flat',
+                       width=8)  # Thin scrollbar
+        
+        # Horizontal Scrollbar
+        style.configure('Horizontal.TScrollbar',
+                       background=self.colors['bg_primary'],
+                       troughcolor=self.colors['bg_primary'],
+                       borderwidth=0,
+                       arrowcolor=self.colors['bg_primary'],
+                       darkcolor=self.colors['bg_primary'],
+                       lightcolor=self.colors['bg_primary'],
+                       relief='flat',
+                       height=8)  # Thin scrollbar
+        
+        # Style the scrollbar thumbs (handles) with modern appearance
+        thumb_color = self.colors['accent']
+        thumb_hover = '#1a7f64'
+        
+        style.configure('Vertical.TScrollbar.thumb',
+                       background=thumb_color,
+                       borderwidth=1,
+                       relief='flat',
+                       bordercolor=thumb_color)
+        
+        style.configure('Horizontal.TScrollbar.thumb',
+                       background=thumb_color,
+                       borderwidth=1,
+                       relief='flat',
+                       bordercolor=thumb_color)
+        
+        # Hover and active states
+        style.map('Vertical.TScrollbar',
+                 background=[('active', self.colors['bg_primary'])],
+                 troughcolor=[('active', self.colors['bg_primary'])])
+        
+        style.map('Horizontal.TScrollbar',
+                 background=[('active', self.colors['bg_primary'])],
+                 troughcolor=[('active', self.colors['bg_primary'])])
+        
+        style.map('Vertical.TScrollbar.thumb',
+                 background=[('active', thumb_hover),
+                           ('pressed', thumb_color)],
+                 bordercolor=[('active', thumb_hover),
+                            ('pressed', thumb_color)])
+        
+        style.map('Horizontal.TScrollbar.thumb',
+                 background=[('active', thumb_hover),
+                           ('pressed', thumb_color)],
+                 bordercolor=[('active', thumb_hover),
+                            ('pressed', thumb_color)])
+        
+        # Configure custom title bar styles
+        style.configure('TitleBar.TFrame',
+                       background=self.colors['bg_secondary'],
+                       borderwidth=0,
+                       relief='flat')
+        
+        style.configure('TitleIcon.TLabel',
+                       background=self.colors['bg_secondary'],
+                       foreground=self.colors['text_primary'],
+                       font=('Segoe UI', 12))
+        
+        style.configure('TitleText.TLabel',
+                       background=self.colors['bg_secondary'],
+                       foreground=self.colors['text_primary'],
+                       font=('Segoe UI', 10, 'bold'))
+        
+        # Title bar buttons
+        style.configure('TitleButton.TButton',
+                       background=self.colors['bg_secondary'],
+                       foreground=self.colors['text_primary'],
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=('Segoe UI', 9),
+                       padding=(8, 6))
+        
+        style.map('TitleButton.TButton',
+                 background=[('active', self.colors['bg_button_hover']),
+                           ('pressed', self.colors['bg_button'])])
+        
+        # Close button with red hover
+        style.configure('TitleButtonClose.TButton',
+                       background=self.colors['bg_secondary'],
+                       foreground=self.colors['text_primary'],
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=('Segoe UI', 9),
+                       padding=(8, 6))
+        
+        style.map('TitleButtonClose.TButton',
+                 background=[('active', '#ef4444'),  # Red on hover
+                           ('pressed', '#dc2626')],
+                 foreground=[('active', 'white'),
+                           ('pressed', 'white')])

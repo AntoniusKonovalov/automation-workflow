@@ -6,6 +6,7 @@ Handles the AI analysis section
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 from datetime import datetime
+from ..ui_utils import CustomScrollbar
 
 
 class AnalysisPanel:
@@ -65,8 +66,12 @@ class AnalysisPanel:
         analysis_frame = ttk.Frame(self.frame, style='TFrame')
         analysis_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 10))
         
-        self.analysis_text = scrolledtext.ScrolledText(
-            analysis_frame, 
+        # Create custom scrollable analysis text area
+        analysis_text_frame = ttk.Frame(analysis_frame, style='TFrame')
+        analysis_text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.analysis_text = tk.Text(
+            analysis_text_frame, 
             wrap=tk.WORD,
             font=self.theme.fonts['code'],
             bg=self.theme.colors['chat_ai'],
@@ -80,7 +85,20 @@ class AnalysisPanel:
             highlightbackground=self.theme.colors['border'],
             padx=12,
             pady=12)
-        self.analysis_text.pack(fill=tk.BOTH, expand=True)
+        self.analysis_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Add custom scrollbar
+        analysis_scrollbar = CustomScrollbar(analysis_text_frame, orient=tk.VERTICAL, 
+                                           command=self.analysis_text.yview)
+        analysis_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.analysis_text.configure(yscrollcommand=analysis_scrollbar.set)
+        
+        # Add mousewheel support
+        def on_analysis_mousewheel(event):
+            self.analysis_text.yview_scroll(int(-1*(event.delta/120)), "units")
+            analysis_scrollbar.show_scrollbar()
+        
+        self.analysis_text.bind("<MouseWheel>", on_analysis_mousewheel)
     
     def create_orchestrator_section(self):
         """Create the orchestrator prompt section"""

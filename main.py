@@ -10,7 +10,7 @@ import threading
 from pathlib import Path
 
 # Import our components
-from components import ThemeManager, GitManager, FileManager, ChangedFile, APIClient, UIUtils, ChatHistoryManager
+from components import ThemeManager, GitManager, FileManager, ChangedFile, APIClient, UIUtils, CustomScrollbar, ChatHistoryManager
 from components.ui import FileListPanel, AnalysisPanel
 
 
@@ -20,7 +20,18 @@ class WorkflowAutomator:
     def __init__(self, root):
         self.root = root
         self.root.title("Git Workflow Automator")
-        self.root.geometry("1400x900")
+        
+        # Remove default title bar for custom styling
+        self.root.overrideredirect(True)
+        
+        # Start maximized - get screen dimensions and set window to full size
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        self.root.geometry(f"{screen_width}x{screen_height}+0+0")
+        
+        # Window state tracking
+        self.is_maximized = True  # Start in maximized state
+        self.normal_geometry = "1400x900+100+50"  # Fallback for restore
         
         # Initialize managers
         self.theme_manager = ThemeManager(root)
@@ -55,13 +66,17 @@ class WorkflowAutomator:
     
     def setup_ui(self):
         """Set up the main UI layout"""
+        # Create custom title bar
+        self.setup_title_bar()
+        
         # Main frame with no padding to maximize space
         main_frame = ttk.Frame(self.root, style='TFrame')
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        main_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Configure grid weights
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=0)  # Title bar row - fixed height
+        self.root.rowconfigure(1, weight=1)  # Main content row - expandable
         main_frame.columnconfigure(0, weight=0)  # Sidebar column - fixed width
         main_frame.columnconfigure(1, weight=1)  # Main content column - expandable
         main_frame.columnconfigure(2, weight=0)  # Button column - fixed width
@@ -79,6 +94,97 @@ class WorkflowAutomator:
         
         # Create status bar at bottom
         self.setup_status_bar(main_frame)
+    
+    def setup_title_bar(self):
+        """Create custom title bar with window controls"""
+        title_bar = ttk.Frame(self.root, style='TitleBar.TFrame')
+        title_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=0, pady=0)
+        
+        # Make title bar draggable
+        title_bar.bind('<Button-1>', self.start_move)
+        title_bar.bind('<B1-Motion>', self.on_move)
+        title_bar.bind('<Double-Button-1>', self.toggle_maximize)
+        
+        # App title and icon
+        title_left = ttk.Frame(title_bar, style='TitleBar.TFrame')
+        title_left.pack(side=tk.LEFT, fill=tk.Y, padx=(15, 0))
+        
+        app_icon = ttk.Label(title_left, text="🚀", style='TitleIcon.TLabel')
+        app_icon.pack(side=tk.LEFT, padx=(0, 8), pady=8)
+        app_icon.bind('<Button-1>', self.start_move)
+        app_icon.bind('<B1-Motion>', self.on_move)
+        app_icon.bind('<Double-Button-1>', self.toggle_maximize)
+        
+        app_title = ttk.Label(title_left, text="Git Workflow Automator", style='TitleText.TLabel')
+        app_title.pack(side=tk.LEFT, pady=8)
+        app_title.bind('<Button-1>', self.start_move)
+        app_title.bind('<B1-Motion>', self.on_move)
+        app_title.bind('<Double-Button-1>', self.toggle_maximize)
+        
+        # Window control buttons
+        controls_frame = ttk.Frame(title_bar, style='TitleBar.TFrame')
+        controls_frame.pack(side=tk.RIGHT, padx=0, pady=0)
+        
+        # Minimize button
+        minimize_btn = ttk.Button(controls_frame, text="─", style='TitleButton.TButton',
+                                 command=self.minimize_window, width=3)
+        minimize_btn.pack(side=tk.LEFT)
+        self.ui_utils.bind_hover_cursor(minimize_btn)
+        self.ui_utils.add_tooltip(minimize_btn, "Minimize")
+        
+        # Maximize/Restore button (start with restore icon since we're maximized)
+        self.maximize_btn = ttk.Button(controls_frame, text="❐", style='TitleButton.TButton',
+                                      command=self.toggle_maximize, width=3)
+        self.maximize_btn.pack(side=tk.LEFT)
+        self.ui_utils.bind_hover_cursor(self.maximize_btn)
+        self.ui_utils.add_tooltip(self.maximize_btn, "Restore")
+        
+        # Close button
+        close_btn = ttk.Button(controls_frame, text="✕", style='TitleButtonClose.TButton',
+                              command=self.close_window, width=3)
+        close_btn.pack(side=tk.LEFT)
+        self.ui_utils.bind_hover_cursor(close_btn)
+        self.ui_utils.add_tooltip(close_btn, "Close")
+    
+    # Window control methods
+    def start_move(self, event):
+        """Start window move operation"""
+        self.x_offset = event.x_root - self.root.winfo_rootx()
+        self.y_offset = event.y_root - self.root.winfo_rooty()
+    
+    def on_move(self, event):
+        """Handle window move"""
+        if not self.is_maximized:
+            x = event.x_root - self.x_offset
+            y = event.y_root - self.y_offset
+            self.root.geometry(f"+{x}+{y}")
+    
+    def minimize_window(self):
+        """Minimize the window"""
+        self.root.iconify()
+    
+    def toggle_maximize(self, event=None):
+        """Toggle between maximize and restore"""
+        if self.is_maximized:
+            # Restore window
+            self.root.geometry(self.normal_geometry)
+            self.maximize_btn.config(text="□")
+            self.ui_utils.add_tooltip(self.maximize_btn, "Maximize")
+            self.is_maximized = False
+        else:
+            # Maximize window
+            self.normal_geometry = self.root.geometry()
+            # Get screen dimensions
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+            self.root.geometry(f"{screen_width}x{screen_height}+0+0")
+            self.maximize_btn.config(text="❐")
+            self.ui_utils.add_tooltip(self.maximize_btn, "Restore")
+            self.is_maximized = True
+    
+    def close_window(self):
+        """Close the application"""
+        self.root.destroy()
     
     def setup_header(self, main_frame):
         """Create the header with project path and API status"""
@@ -214,9 +320,9 @@ class WorkflowAutomator:
                                        bg=self.theme_manager.colors['border'])
         vertical_paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Top section - Selected for Analysis
+        # Top section - Selected for Analysis (reduced to half size)
         selected_container = ttk.Frame(vertical_paned, style='TFrame')
-        vertical_paned.add(selected_container, minsize=150, height=250)
+        vertical_paned.add(selected_container, minsize=150, height=125)
         
         self.setup_selected_section(selected_container)
         
@@ -304,18 +410,36 @@ class WorkflowAutomator:
         history_list_frame = ttk.Frame(self.history_frame, style='TFrame')
         history_list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
         
-        # Create scrollable text area for chat history
-        self.history_text = scrolledtext.ScrolledText(
-            history_list_frame,
+        # Create custom scrollable text area for chat history
+        history_text_frame = ttk.Frame(history_list_frame, style='TFrame')
+        history_text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.history_text = tk.Text(
+            history_text_frame,
             wrap=tk.WORD,
             height=25,  # Increased height
             width=50,   # Set minimum width
             font=self.theme_manager.fonts['small'],  # Smaller font to fit more
             bg=self.theme_manager.colors['chat_ai'],
             fg=self.theme_manager.colors['text_primary'],
-            state='disabled'  # Read-only
+            state='disabled',  # Read-only
+            highlightthickness=0,
+            borderwidth=0
         )
-        self.history_text.pack(fill=tk.BOTH, expand=True)
+        self.history_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Add custom scrollbar
+        history_scrollbar = CustomScrollbar(history_text_frame, orient=tk.VERTICAL, 
+                                          command=self.history_text.yview)
+        history_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.history_text.configure(yscrollcommand=history_scrollbar.set)
+        
+        # Add mousewheel support
+        def on_history_mousewheel(event):
+            self.history_text.yview_scroll(int(-1*(event.delta/120)), "units")
+            history_scrollbar.show_scrollbar()
+        
+        self.history_text.bind("<MouseWheel>", on_history_mousewheel)
     
     def setup_selected_section(self, container):
         """Set up the Selected for Analysis section"""
@@ -356,13 +480,32 @@ class WorkflowAutomator:
         selected_frame = ttk.Frame(container, style='TFrame')
         selected_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
         
-        self.selected_text = scrolledtext.ScrolledText(
-            selected_frame, 
+        # Create custom scrollable text area for selected files
+        selected_text_frame = ttk.Frame(selected_frame, style='TFrame')
+        selected_text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.selected_text = tk.Text(
+            selected_text_frame, 
             wrap=tk.WORD, 
             font=self.theme_manager.fonts['code'],
             bg=self.theme_manager.colors['chat_user'],
-            fg=self.theme_manager.colors['text_primary'])
-        self.selected_text.pack(fill=tk.BOTH, expand=True)
+            fg=self.theme_manager.colors['text_primary'],
+            highlightthickness=0,
+            borderwidth=0)
+        self.selected_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Add custom scrollbar
+        selected_scrollbar = CustomScrollbar(selected_text_frame, orient=tk.VERTICAL, 
+                                           command=self.selected_text.yview)
+        selected_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.selected_text.configure(yscrollcommand=selected_scrollbar.set)
+        
+        # Add mousewheel support
+        def on_selected_mousewheel(event):
+            self.selected_text.yview_scroll(int(-1*(event.delta/120)), "units")
+            selected_scrollbar.show_scrollbar()
+        
+        self.selected_text.bind("<MouseWheel>", on_selected_mousewheel)
         self.selected_text.insert('1.0', "No files selected for analysis")
     
     def setup_file_list_callbacks(self):
@@ -674,11 +817,11 @@ class WorkflowAutomator:
     def toggle_selected_size(self):
         """Toggle between compact and expanded view for Selected section"""
         if self.selected_expanded:
-            self.vertical_paned.paneconfig(self.selected_container, height=250)
+            self.vertical_paned.paneconfig(self.selected_container, height=125)  # Half the original size
             self.expand_selected_btn.config(text="Expand ↓")
             self.selected_expanded = False
         else:
-            self.vertical_paned.paneconfig(self.selected_container, height=450)
+            self.vertical_paned.paneconfig(self.selected_container, height=450)  # Keep expanded size the same
             self.expand_selected_btn.config(text="Collapse ↑")
             self.selected_expanded = True
     
@@ -701,7 +844,8 @@ class WorkflowAutomator:
                 self.main_paned.add(self.history_frame)
             
             self.main_paned.paneconfigure(self.history_frame, minsize=500)
-            self.history_icon.config(text="💬◀")  # Icon with left arrow to indicate expanded
+            # Change icon color to green when expanded (instead of adding arrow)
+            self.history_icon.config(foreground='#10a37f')  # Green accent color
             self.history_section_collapsed = False
             
             # Load and display history
@@ -709,7 +853,8 @@ class WorkflowAutomator:
         else:
             # Hide history panel from paned window
             self.main_paned.forget(self.history_frame)
-            self.history_icon.config(text="💬")  # Back to normal icon
+            # Reset icon color back to normal
+            self.history_icon.config(foreground=self.theme_manager.colors['text_primary'])
             self.history_section_collapsed = True
     
     # ========== FILE OPERATIONS ==========

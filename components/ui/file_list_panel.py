@@ -6,6 +6,7 @@ Displays the list of changed files
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import threading
+from ..ui_utils import CustomScrollbar
 
 
 class FileListPanel:
@@ -59,8 +60,8 @@ class FileListPanel:
                                highlightthickness=0,
                                borderwidth=0)
         
-        scrollbar_v = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL, 
-                                    command=self.canvas.yview)
+        scrollbar_v = CustomScrollbar(canvas_frame, orient=tk.VERTICAL, 
+                                     command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas, style='TFrame')
         
         self.scrollable_frame.bind(
@@ -75,11 +76,11 @@ class FileListPanel:
         scrollbar_v.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Bind mouse wheel
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-    
-    def _on_mousewheel(self, event):
-        """Handle mouse wheel scrolling"""
-        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        def on_mousewheel(event):
+            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            scrollbar_v.show_scrollbar()
+        
+        self.canvas.bind("<MouseWheel>", on_mousewheel)
     
     def create_file_widget(self, file_obj, index, callbacks):
         """Create a widget for a single file"""
