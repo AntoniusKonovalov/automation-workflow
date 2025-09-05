@@ -18,6 +18,16 @@ class APIClient:
         self.openai_api_key = os.getenv('OPENAI_API_KEY', '')
         self.anthropic_api_key = os.getenv('ANTHROPIC_API_KEY', '')
         self.preferred_api = self.determine_preferred_api()
+        self.selected_model = "gpt-5"  # Default model
+        
+        # Available OpenAI models
+        self.available_models = {
+            "GPT-5 (Latest)": "gpt-5",
+            "GPT-5 Mini": "gpt-5-mini", 
+            "GPT-4.1": "gpt-4.1",
+            "GPT-4o": "gpt-4o",
+            "GPT-4o Mini": "gpt-4o-mini"
+        }
     
     def determine_preferred_api(self):
         """Determine which API to use based on available keys"""
@@ -27,6 +37,20 @@ class APIClient:
             return 'openai'
         else:
             return None
+    
+    def set_model(self, model_name):
+        """Set the selected OpenAI model"""
+        if model_name in self.available_models.values():
+            self.selected_model = model_name
+        elif model_name in self.available_models.keys():
+            self.selected_model = self.available_models[model_name]
+    
+    def get_current_model_display_name(self):
+        """Get the display name of the current model"""
+        for display_name, model_id in self.available_models.items():
+            if model_id == self.selected_model:
+                return display_name
+        return f"Custom: {self.selected_model}"
     
     def get_api_status(self):
         """Get a user-friendly API status message"""
@@ -77,23 +101,34 @@ class APIClient:
             
             client = OpenAI(api_key=self.openai_api_key)
             
-            response = client.chat.completions.create(
-                model='gpt-3.5-turbo',
-                messages=[
-                    {
-                        'role': 'system',
-                        'content': 'You are a code analysis assistant. Analyze the provided code files based on the user\'s specific requirements.'
-                    },
-                    {
-                        'role': 'user',
-                        'content': f'{custom_prompt}\n\nHere are the changed files to analyze:\n\n{content}'
-                    }
-                ],
-                max_tokens=2000,
-                temperature=0.7
-            )
+            # GPT-5 uses different API endpoint (Responses API)
+            if self.selected_model.startswith('gpt-5'):
+                response = client.responses.create(
+                    model=self.selected_model,
+                    input=f'{custom_prompt}\n\nHere are the changed files to analyze:\n\n{content}',
+                    reasoning={'effort': 'medium'},
+                    text={'verbosity': 'medium'}
+                )
+                return response.output_text, None
             
-            return response.choices[0].message.content, None
+            # GPT-4 and older models use Chat Completions API
+            else:
+                response = client.chat.completions.create(
+                    model=self.selected_model,
+                    messages=[
+                        {
+                            'role': 'system',
+                            'content': 'You are a code analysis assistant. Analyze the provided code files based on the user\'s specific requirements.'
+                        },
+                        {
+                            'role': 'user',
+                            'content': f'{custom_prompt}\n\nHere are the changed files to analyze:\n\n{content}'
+                        }
+                    ],
+                    max_tokens=4000,
+                    temperature=0.7
+                )
+                return response.choices[0].message.content, None
             
         except Exception as e:
             error_str = str(e)
@@ -103,5 +138,9 @@ class APIClient:
                 return None, "Invalid API Key: Please check your OpenAI API key in the .env file."
             elif "rate_limit" in error_str.lower():
                 return None, "Rate limited: Please wait a moment and try again."
+            elif "model" in error_str.lower() and "does not exist" in error_str.lower():
+                return None, f"Model Error: {error_str}\n\nNote: GPT-5 models may not be available in all regions or accounts yet.\nTry: gpt-4o, gpt-4.1, or contact OpenAI support."
+            elif "responses" in error_str.lower() or "endpoint" in error_str.lower():
+                return None, f"API Error: {error_str}\n\nGPT-5 requires the Responses API which may not be available yet.\nPlease use GPT-4o or GPT-4.1 instead."
             else:
                 return None, f"Error: {error_str}"

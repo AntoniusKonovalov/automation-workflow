@@ -12,7 +12,8 @@
       "Bash(npx @modelcontextprotocol/inspector:*)",
       "WebFetch(domain:chat.openai.com)",
       "WebFetch(domain:chatgpt.com)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Read(/C:\\Users\\oshry\\Desktop\\automation-workflow/**)"
     ],
     "deny": [],
     "ask": []

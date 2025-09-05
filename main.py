@@ -60,13 +60,17 @@ class WorkflowAutomator:
         main_frame.columnconfigure(0, weight=0)  # Sidebar column - fixed width
         main_frame.columnconfigure(1, weight=1)  # Main content column - expandable
         main_frame.columnconfigure(2, weight=0)  # Button column - fixed width
-        main_frame.rowconfigure(2, weight=1)
+        main_frame.rowconfigure(2, weight=1)  # Main content row
+        main_frame.rowconfigure(3, weight=0)  # Status bar row
         
         # Create header section
         self.setup_header(main_frame)
         
         # Create main content area
         self.setup_main_content(main_frame)
+        
+        # Create status bar at bottom
+        self.setup_status_bar(main_frame)
     
     def setup_header(self, main_frame):
         """Create the header with project path and API status"""
@@ -101,10 +105,31 @@ class WorkflowAutomator:
                              width=50, state='readonly')
         api_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(150, 5))
         
-        refresh_btn = ttk.Button(main_frame, text="Refresh Files",
-                                command=self.refresh_with_reset)
-        refresh_btn.grid(row=1, column=2, padx=(0, 10))
-        self.ui_utils.bind_hover_cursor(refresh_btn)
+        # GPT Model selector dropdown
+        model_var = tk.StringVar(value=self.api_client.get_current_model_display_name())
+        self.model_var = model_var
+        model_menu = ttk.Menubutton(main_frame, textvariable=model_var, 
+                                   width=20, style='TButton')
+        model_menu.grid(row=1, column=2, padx=(0, 10))
+        self.ui_utils.bind_hover_cursor(model_menu)
+        
+        # Create model dropdown menu
+        model_dropdown = tk.Menu(model_menu, tearoff=0,
+                               bg=self.theme_manager.colors['bg_secondary'],
+                               fg=self.theme_manager.colors['text_primary'],
+                               activebackground=self.theme_manager.colors['accent'],
+                               activeforeground='white',
+                               borderwidth=0)
+        
+        # Add model options
+        for display_name, model_id in self.api_client.available_models.items():
+            model_dropdown.add_command(
+                label=display_name,
+                command=lambda name=display_name: self.select_model(name)
+            )
+        
+        model_menu.config(menu=model_dropdown)
+        self.model_menu = model_menu
     
     def setup_main_content(self, main_frame):
         """Create the main content area with panels"""
@@ -159,6 +184,16 @@ class WorkflowAutomator:
                                           style='Sidebar.TButton', width=3)
         self.files_toggle_btn.pack()
         self.ui_utils.bind_hover_cursor(self.files_toggle_btn)
+        
+        # Add some spacing
+        ttk.Label(sidebar_content, text="", style='TLabel').pack(pady=10)
+        
+        # Refresh button (moved from header)
+        refresh_btn = ttk.Button(sidebar_content, text="🔄",
+                                command=self.refresh_with_reset, 
+                                style='Sidebar.TButton', width=3)
+        refresh_btn.pack()
+        self.ui_utils.bind_hover_cursor(refresh_btn)
     
     def setup_right_panel(self, right_frame):
         """Set up the right panel with Selected and Analysis sections"""
@@ -192,6 +227,24 @@ class WorkflowAutomator:
         self.selected_container = selected_container
         self.analysis_container = analysis_container
     
+    def setup_status_bar(self, main_frame):
+        """Create status bar at bottom of window"""
+        status_frame = ttk.Frame(main_frame, style='TFrame')
+        status_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), 
+                         padx=10, pady=(0, 5))
+        
+        # Status label
+        status_label = ttk.Label(status_frame, textvariable=self.status_var,
+                                style='Secondary.TLabel')
+        status_label.pack(side=tk.LEFT)
+        
+        # Current model indicator
+        model_indicator = ttk.Label(status_frame, 
+                                   text=f"Model: {self.api_client.get_current_model_display_name()}",
+                                   style='Secondary.TLabel')
+        model_indicator.pack(side=tk.RIGHT)
+        self.model_indicator = model_indicator
+    
     def setup_selected_section(self, container):
         """Set up the Selected for Analysis section"""
         # Header
@@ -211,6 +264,21 @@ class WorkflowAutomator:
                                              style='TButton')
         self.expand_selected_btn.pack(side=tk.LEFT, padx=2)
         self.ui_utils.bind_hover_cursor(self.expand_selected_btn)
+        
+        copy_all_btn = ttk.Button(button_frame, text="Copy All",
+                                 command=self.copy_all_selected, style='TButton')
+        copy_all_btn.pack(side=tk.LEFT, padx=2)
+        self.ui_utils.bind_hover_cursor(copy_all_btn)
+        
+        append_all_btn = ttk.Button(button_frame, text="Append All",
+                                   command=self.append_all_files, style='TButton')
+        append_all_btn.pack(side=tk.LEFT, padx=2)
+        self.ui_utils.bind_hover_cursor(append_all_btn)
+        
+        clear_all_btn = ttk.Button(button_frame, text="Clear All",
+                                  command=self.clear_selection, style='TButton')
+        clear_all_btn.pack(side=tk.LEFT, padx=2)
+        self.ui_utils.bind_hover_cursor(clear_all_btn)
         
         # Selected files text area
         selected_frame = ttk.Frame(container, style='TFrame')
@@ -253,6 +321,22 @@ class WorkflowAutomator:
             command=lambda: self.send_to_ai('prompt'))
     
     # ========== EVENT HANDLERS ==========
+    
+    def select_model(self, display_name):
+        """Handle model selection from dropdown"""
+        self.api_client.set_model(display_name)
+        self.model_var.set(display_name)
+        
+        # Update model indicator in status bar
+        if hasattr(self, 'model_indicator'):
+            self.model_indicator.config(text=f"Model: {display_name}")
+        
+        # Update status to show selected model
+        model_id = self.api_client.selected_model
+        self.status_var.set(f"Model changed to: {display_name} ({model_id})")
+        
+        # Auto-clear status after 3 seconds
+        self.root.after(3000, lambda: self.status_var.set("Ready"))
     
     def browse_project(self):
         """Browse for project directory"""
@@ -504,6 +588,48 @@ class WorkflowAutomator:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to remove file: {e}")
     
+    def copy_all_selected(self):
+        """Copy all selected files content to clipboard"""
+        content = self.selected_text.get('1.0', tk.END).strip()
+        if content and content != "No files selected for analysis":
+            if self.ui_utils.copy_to_clipboard(content):
+                self.status_var.set("All selected files copied to clipboard")
+                self.root.after(2000, lambda: self.status_var.set("Ready"))
+        else:
+            self.status_var.set("No content to copy")
+    
+    def append_all_files(self):
+        """Add all visible changed files to analysis"""
+        added_count = 0
+        for file_obj in self.changed_files:
+            if file_obj not in self.selected_files:
+                # Load content if not already loaded
+                if not file_obj.content_preview and not file_obj.error:
+                    self.file_manager.load_file_content(file_obj)
+                
+                self.add_to_analysis(file_obj)
+                added_count += 1
+        
+        if added_count > 0:
+            self.status_var.set(f"Added {added_count} files to analysis")
+            self.root.after(2000, lambda: self.status_var.set("Ready"))
+        else:
+            self.status_var.set("All files already selected")
+    
+    def clear_selection(self):
+        """Clear all selected files from analysis"""
+        self.selected_files.clear()
+        
+        # Uncheck all checkboxes
+        for file_obj in self.changed_files:
+            if hasattr(file_obj, 'widgets') and 'select_var' in file_obj.widgets:
+                file_obj.widgets['select_var'].set(False)
+            file_obj.selected_for_analysis = False
+        
+        self.update_selected_display()
+        self.status_var.set("Selection cleared")
+        self.root.after(2000, lambda: self.status_var.set("Ready"))
+
     def update_selected_display(self):
         """Update the Selected for Analysis pane"""
         self.selected_text.delete('1.0', tk.END)
