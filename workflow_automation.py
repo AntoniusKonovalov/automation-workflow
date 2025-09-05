@@ -216,7 +216,7 @@ class WorkflowAutomator:
 
         # Style for files loaded (green) state
         style.configure('SidebarLoaded.TButton',
-                       background=self.colors['success'],
+                       background='#10a37f',  # Use direct green color
                        foreground='white',
                        borderwidth=0,
                        focuscolor='none',
@@ -224,8 +224,21 @@ class WorkflowAutomator:
                        padding=(8, 6))
         
         style.map('SidebarLoaded.TButton',
-                 background=[('active', self.colors['accent_hover']),
-                           ('pressed', self.colors['success'])])
+                 background=[('active', '#1a7f64'),
+                           ('pressed', '#10a37f')])
+        
+        # Style for loading (red) state
+        style.configure('SidebarLoading.TButton',
+                       background='#ef4444',  # Use direct red color
+                       foreground='white',
+                       borderwidth=0,
+                       focuscolor='none',
+                       font=('Segoe UI', 10, 'bold'),
+                       padding=(8, 6))
+        
+        style.map('SidebarLoading.TButton',
+                 background=[('active', '#dc2626'),
+                           ('pressed', '#ef4444')])
 
     def bind_hover_cursor(self, widget):
         """Bind hand cursor on hover for interactive widgets"""
@@ -405,7 +418,7 @@ class WorkflowAutomator:
         api_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(150, 5))
         
         refresh_btn = ttk.Button(main_frame, text="Refresh Files",
-                   command=self.refresh_changed_files)
+                   command=self.refresh_with_reset)
         refresh_btn.grid(row=1, column=2, padx=(0, 10))
         self.bind_hover_cursor(refresh_btn)
 
@@ -776,9 +789,57 @@ Instructions for the orchestrator:
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
+    def set_button_green(self):
+        """Set the toggle button to green (loaded) state"""
+        self.files_toggle_btn.configure(style='SidebarLoaded.TButton')
+        self.files_toggle_btn.update()
+        self.root.update()
+        print("DEBUG: Actually set toggle button to GREEN")
+    
+    def reset_all_content(self):
+        """Reset all content when switching projects"""
+        # Clear changed files list and UI
+        self.changed_files.clear()
+        for widget in self.scrollable_frame.winfo_children():
+            widget.destroy()
+        
+        # Clear selected files
+        self.selected_files.clear()
+        self.selected_text.delete('1.0', tk.END)
+        self.selected_text.insert('1.0', "No files selected for analysis")
+        
+        # Clear chat/analysis history
+        self.chat_history.clear()
+        self.response_frames.clear()
+        self.analysis_text.delete('1.0', tk.END)
+        
+        # Clear exclude paths
+        self.exclude_paths.clear()
+        
+        # Set button to loading state (red) and force update
+        self.files_toggle_btn.configure(style='SidebarLoading.TButton')
+        # Force the style to be applied
+        self.root.after(1, lambda: self.files_toggle_btn.configure(style='SidebarLoading.TButton'))
+        self.files_toggle_btn.update()  # Force immediate widget update
+        self.root.update()  # Update the entire window
+        print("DEBUG: Set toggle button to RED (loading)")
+        
+        # Update status
+        self.status_var.set("Loading new project...")
+    
+    def refresh_with_reset(self):
+        """Refresh files with content reset"""
+        if self.project_path:
+            self.reset_all_content()
+            self.refresh_changed_files()
+        else:
+            messagebox.showwarning("Warning", "Please select a project path first")
+    
     def browse_project(self):
         directory = filedialog.askdirectory()
         if directory:
+            # Reset everything when a new project is selected
+            self.reset_all_content()
             self.path_var.set(directory)
             self.project_path = directory
             self.refresh_changed_files()
@@ -809,6 +870,13 @@ Instructions for the orchestrator:
             return
 
         try:
+            # Set button to loading state (red) and force update
+            self.files_toggle_btn.configure(style='SidebarLoading.TButton')
+            # Force the style to be applied
+            self.root.after(1, lambda: self.files_toggle_btn.configure(style='SidebarLoading.TButton'))
+            self.files_toggle_btn.update()  # Force immediate widget update
+            self.root.update()  # Update the entire window
+            print("DEBUG: Set toggle button to RED in refresh_changed_files")
             self.status_var.set("Refreshing changed files...")
 
             # Find repository root properly
@@ -894,18 +962,27 @@ Instructions for the orchestrator:
             
             # Update toggle button style to green when files are loaded
             if len(self.changed_files) > 0:
-                self.files_toggle_btn.configure(style='SidebarLoaded.TButton')
+                # Use after to ensure UI is ready for the style change
+                self.root.after(10, lambda: self.set_button_green())
+                print(f"DEBUG: Scheduling toggle button to GREEN (loaded {len(self.changed_files)} files)")
             else:
                 self.files_toggle_btn.configure(style='Sidebar.TButton')
+                self.files_toggle_btn.update()
+                self.root.update()
+                print("DEBUG: Set toggle button to DEFAULT (no files)")
 
         except subprocess.CalledProcessError as e:
             print(f"DEBUG: Git command error: {e}")
             messagebox.showerror("Error", f"Git command failed: {e}")
             self.status_var.set("Error getting changed files")
+            # Reset button to normal state on error
+            self.files_toggle_btn.configure(style='Sidebar.TButton')
         except Exception as e:
             print(f"DEBUG: General error: {e}")
             messagebox.showerror("Error", f"Failed to get changed files: {e}")
             self.status_var.set("Error")
+            # Reset button to normal state on error
+            self.files_toggle_btn.configure(style='Sidebar.TButton')
 
     def create_file_widgets(self):
         """Create UI widgets for each changed file"""
