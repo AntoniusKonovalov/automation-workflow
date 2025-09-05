@@ -19,8 +19,8 @@ If Not objFSO.FolderExists(strScriptPath & "\components") Then
     WScript.Quit 1
 End If
 
-' Show startup message
-MsgBox "🚀 Starting Git Workflow Automator..." & vbCrLf & "Modular Edition v2.0", vbInformation, "Git Workflow Automator"
+' Show startup message (commented out - no popup needed)
+' MsgBox "🚀 Starting Git Workflow Automator..." & vbCrLf & "Modular Edition v2.0", vbInformation, "Git Workflow Automator"
 
 ' Run the Python application (0 = hidden console, 1 = visible console)
 Dim result

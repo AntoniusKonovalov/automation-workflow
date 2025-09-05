@@ -4,7 +4,42 @@ Helper functions for UI operations
 """
 
 import tkinter as tk
+from tkinter import ttk
 import pyperclip
+
+
+class ToolTip:
+    """Simple tooltip widget for showing hover text"""
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip = None
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+        
+    def show_tooltip(self, event=None):
+        if self.tooltip:
+            return
+            
+        x = self.widget.winfo_rootx() + self.widget.winfo_width() // 2
+        y = self.widget.winfo_rooty() - 30
+        
+        self.tooltip = tk.Toplevel()
+        self.tooltip.wm_overrideredirect(True)
+        self.tooltip.geometry(f"+{x}+{y}")
+        
+        label = tk.Label(self.tooltip, text=self.text, 
+                        background="#ffffe0", 
+                        foreground="#000000",
+                        relief="solid", 
+                        borderwidth=1,
+                        font=("Arial", 9))
+        label.pack()
+        
+    def hide_tooltip(self, event=None):
+        if self.tooltip:
+            self.tooltip.destroy()
+            self.tooltip = None
 
 
 class UIUtils:
@@ -15,6 +50,11 @@ class UIUtils:
         """Bind hand cursor on hover for interactive widgets"""
         widget.bind("<Enter>", lambda e: widget.configure(cursor="hand2"))
         widget.bind("<Leave>", lambda e: widget.configure(cursor=""))
+    
+    @staticmethod
+    def add_tooltip(widget, text):
+        """Add a tooltip to a widget"""
+        return ToolTip(widget, text)
     
     @staticmethod
     def copy_to_clipboard(text):

@@ -10,7 +10,7 @@ import threading
 from pathlib import Path
 
 # Import our components
-from components import ThemeManager, GitManager, FileManager, ChangedFile, APIClient, UIUtils
+from components import ThemeManager, GitManager, FileManager, ChangedFile, APIClient, UIUtils, ChatHistoryManager
 from components.ui import FileListPanel, AnalysisPanel
 
 
@@ -28,6 +28,7 @@ class WorkflowAutomator:
         self.file_manager = FileManager()
         self.api_client = APIClient()
         self.ui_utils = UIUtils()
+        self.chat_history_manager = ChatHistoryManager()
         
         # Application state
         self.project_path = ""
@@ -35,6 +36,7 @@ class WorkflowAutomator:
         self.selected_files = []
         self.files_section_collapsed = True
         self.selected_expanded = False
+        self.history_section_collapsed = True
         
         # Status tracking
         self.status_var = tk.StringVar()
@@ -47,6 +49,9 @@ class WorkflowAutomator:
         self.files_toggle_btn = None
         
         self.setup_ui()
+        
+        # Try to auto-detect current project if in git repo
+        self.auto_detect_project()
     
     def setup_ui(self):
         """Set up the main UI layout"""
@@ -68,6 +73,9 @@ class WorkflowAutomator:
         
         # Create main content area
         self.setup_main_content(main_frame)
+        
+        # Create chat history panel (initially hidden)
+        self.setup_chat_history_panel(main_frame)
         
         # Create status bar at bottom
         self.setup_status_bar(main_frame)
@@ -184,16 +192,17 @@ class WorkflowAutomator:
                                           style='Sidebar.TButton', width=3)
         self.files_toggle_btn.pack()
         self.ui_utils.bind_hover_cursor(self.files_toggle_btn)
+        self.ui_utils.add_tooltip(self.files_toggle_btn, "Toggle Files Panel")
         
-        # Add some spacing
-        ttk.Label(sidebar_content, text="", style='TLabel').pack(pady=10)
+        # Chat history icon (clickable) - attached below files toggle
+        self.history_icon = ttk.Label(sidebar_content, text="💬", 
+                                     style='SidebarIcon.TLabel', font=('Segoe UI', 16))
+        self.history_icon.pack(pady=(5, 10))  # Reduced top padding
         
-        # Refresh button (moved from header)
-        refresh_btn = ttk.Button(sidebar_content, text="🔄",
-                                command=self.refresh_with_reset, 
-                                style='Sidebar.TButton', width=3)
-        refresh_btn.pack()
-        self.ui_utils.bind_hover_cursor(refresh_btn)
+        # Make the icon clickable
+        self.history_icon.bind("<Button-1>", lambda e: self.toggle_history_section())
+        self.ui_utils.bind_hover_cursor(self.history_icon)
+        self.ui_utils.add_tooltip(self.history_icon, "Toggle Chat History")
     
     def setup_right_panel(self, right_frame):
         """Set up the right panel with Selected and Analysis sections"""
@@ -245,12 +254,21 @@ class WorkflowAutomator:
                                style='Secondary.TLabel')
         token_label.pack(side=tk.RIGHT, padx=(0, 20))
         
+        # Refresh button (moved from sidebar)
+        refresh_btn = ttk.Button(status_frame, text="🔄", width=3,
+                                command=self.refresh_with_reset, 
+                                style='TButton')
+        refresh_btn.pack(side=tk.RIGHT, padx=(0, 5))
+        self.ui_utils.bind_hover_cursor(refresh_btn)
+        self.ui_utils.add_tooltip(refresh_btn, "Refresh Files")
+        
         # Clear tokens button
         clear_tokens_btn = ttk.Button(status_frame, text="🗑️", width=3,
                                      command=self.clear_token_history,
                                      style='TButton')
         clear_tokens_btn.pack(side=tk.RIGHT, padx=(0, 5))
         self.ui_utils.bind_hover_cursor(clear_tokens_btn)
+        self.ui_utils.add_tooltip(clear_tokens_btn, "Clear Token History")
         
         # Current model indicator (right)
         model_indicator = ttk.Label(status_frame, 
@@ -258,6 +276,46 @@ class WorkflowAutomator:
                                    style='Secondary.TLabel')
         model_indicator.pack(side=tk.RIGHT, padx=(0, 10))
         self.model_indicator = model_indicator
+    
+    def setup_chat_history_panel(self, main_frame):
+        """Create the expandable chat history panel"""
+        self.history_frame = ttk.Frame(main_frame, style='Card.TFrame')
+        # Don't grid yet - will be shown when toggled
+        
+        # Header
+        history_header = ttk.Frame(self.history_frame, style='TFrame')
+        history_header.pack(fill=tk.X, padx=10, pady=(10, 5))
+        
+        history_label = ttk.Label(history_header, text="💬 Chat History:",
+                                 style='Heading.TLabel')
+        history_label.pack(side=tk.LEFT)
+        
+        # Buttons
+        history_buttons = ttk.Frame(history_header, style='TFrame')
+        history_buttons.pack(side=tk.RIGHT)
+        
+        clear_history_btn = ttk.Button(history_buttons, text="Clear All",
+                                      command=self.clear_chat_history,
+                                      style='TButton')
+        clear_history_btn.pack(side=tk.LEFT, padx=2)
+        self.ui_utils.bind_hover_cursor(clear_history_btn)
+        
+        # Chat history list with scrollbar
+        history_list_frame = ttk.Frame(self.history_frame, style='TFrame')
+        history_list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+        
+        # Create scrollable text area for chat history
+        self.history_text = scrolledtext.ScrolledText(
+            history_list_frame,
+            wrap=tk.WORD,
+            height=25,  # Increased height
+            width=50,   # Set minimum width
+            font=self.theme_manager.fonts['small'],  # Smaller font to fit more
+            bg=self.theme_manager.colors['chat_ai'],
+            fg=self.theme_manager.colors['text_primary'],
+            state='disabled'  # Read-only
+        )
+        self.history_text.pack(fill=tk.BOTH, expand=True)
     
     def setup_selected_section(self, container):
         """Set up the Selected for Analysis section"""
@@ -380,6 +438,91 @@ class WorkflowAutomator:
         self.status_var.set("Token history cleared")
         self.root.after(2000, lambda: self.status_var.set("Ready"))
     
+    def refresh_chat_history_display(self):
+        """Refresh the chat history display"""
+        if not hasattr(self, 'history_text'):
+            return
+        
+        # Debug: Check current project and history
+        print(f"DEBUG: Current project: {self.project_path}")
+        print(f"DEBUG: History manager project: {self.chat_history_manager.current_project_path}")
+        
+        # Load project history if needed
+        if self.project_path and self.chat_history_manager.current_project_path != self.project_path:
+            print(f"DEBUG: Loading history for project: {self.project_path}")
+            self.chat_history_manager.load_project_history(self.project_path)
+        
+        history_entries = self.chat_history_manager.get_recent_chats(30)  # Last 30 chats
+        print(f"DEBUG: Found {len(history_entries)} history entries")
+        
+        # Update display
+        self.history_text.config(state='normal')
+        self.history_text.delete('1.0', tk.END)
+        
+        if not history_entries:
+            message = f"No chat history for this project yet.\n\nProject: {self.project_path or 'No project loaded'}\n\nStart a conversation by using the AI analysis features!"
+            self.history_text.insert('1.0', message)
+        else:
+            # Add project info at top
+            project_info = f"📁 Project: {self.project_path}\n"
+            project_info += f"💬 {len(history_entries)} chat entries\n"
+            project_info += "=" * 60 + "\n\n"
+            self.history_text.insert(tk.END, project_info)
+            
+            for i, entry in enumerate(history_entries, 1):
+                # Add timestamp and prompt type
+                timestamp = entry.get_formatted_time()
+                prompt_type = "🎭" if entry.prompt_type == "orchestrator" else "✏️"
+                
+                # Header with entry number
+                header = f"{i}. {prompt_type} {timestamp} | {entry.model_used}\n"
+                self.history_text.insert(tk.END, header)
+                
+                # Full prompt text with proper formatting
+                self.history_text.insert(tk.END, f"Q: {entry.prompt_text}\n\n")
+                
+                # Full response text with proper formatting  
+                self.history_text.insert(tk.END, f"A: {entry.response_text}\n\n")
+                
+                # Token info if available
+                if entry.token_usage:
+                    tokens = entry.token_usage.get('total_tokens', 0)
+                    self.history_text.insert(tk.END, f"🔢 Tokens: {tokens:,}\n")
+                
+                # Separator
+                self.history_text.insert(tk.END, "─" * 60 + "\n\n")
+        
+        self.history_text.config(state='disabled')
+        self.history_text.see(tk.END)  # Scroll to bottom
+    
+    def clear_chat_history(self):
+        """Clear chat history for current project"""
+        if not self.project_path:
+            self.status_var.set("No project loaded")
+            return
+        
+        self.chat_history_manager.clear_current_project_history()
+        self.refresh_chat_history_display()
+        self.status_var.set("Chat history cleared")
+        self.root.after(2000, lambda: self.status_var.set("Ready"))
+    
+    def auto_detect_project(self):
+        """Auto-detect current working directory as project if it's a git repo"""
+        import os
+        current_dir = os.getcwd()
+        
+        # Check if current directory is a git repository
+        if os.path.exists(os.path.join(current_dir, '.git')):
+            print(f"DEBUG: Auto-detected git project: {current_dir}")
+            self.project_path = current_dir
+            self.chat_history_manager.load_project_history(current_dir)
+            
+            # Refresh display if history panel is visible
+            if not self.history_section_collapsed:
+                self.refresh_chat_history_display()
+            
+            self.status_var.set(f"Auto-detected project: {os.path.basename(current_dir)}")
+    
     def browse_project(self):
         """Browse for project directory"""
         directory = filedialog.askdirectory()
@@ -387,6 +530,8 @@ class WorkflowAutomator:
             self.reset_all_content()
             self.path_var.set(directory)
             self.project_path = directory
+            # Load chat history for this project
+            self.chat_history_manager.load_project_history(directory)
             self.refresh_changed_files()
     
     def refresh_with_reset(self):
@@ -536,6 +681,36 @@ class WorkflowAutomator:
             self.vertical_paned.paneconfig(self.selected_container, height=450)
             self.expand_selected_btn.config(text="Collapse ↑")
             self.selected_expanded = True
+    
+    def toggle_history_section(self):
+        """Toggle the chat history panel visibility in the main paned window"""
+        if self.history_section_collapsed:
+            # Add history panel to the left side of the paned window
+            panes = self.main_paned.panes()
+            if panes:
+                # If files panel is open, add history after it
+                # If files panel is closed, add history as first panel
+                if len(panes) > 1:
+                    # Files panel is open, add history before right panel  
+                    self.main_paned.add(self.history_frame, before=panes[-1])
+                else:
+                    # Files panel is closed, add history before right panel
+                    self.main_paned.add(self.history_frame, before=panes[0])
+            else:
+                # No panes (shouldn't happen), add as first
+                self.main_paned.add(self.history_frame)
+            
+            self.main_paned.paneconfigure(self.history_frame, minsize=500)
+            self.history_icon.config(text="💬◀")  # Icon with left arrow to indicate expanded
+            self.history_section_collapsed = False
+            
+            # Load and display history
+            self.refresh_chat_history_display()
+        else:
+            # Hide history panel from paned window
+            self.main_paned.forget(self.history_frame)
+            self.history_icon.config(text="💬")  # Back to normal icon
+            self.history_section_collapsed = True
     
     # ========== FILE OPERATIONS ==========
     
@@ -738,13 +913,29 @@ class WorkflowAutomator:
                 self.root.after(0, lambda: self.status_var.set("Ready"))
                 return
             
+            # Save to chat history
+            token_info = self.api_client.get_token_usage_info()
+            chat_entry = self.chat_history_manager.add_chat_entry(
+                prompt_type=prompt_type,
+                prompt_text=prompt,
+                response_text=result,
+                model_used=self.api_client.selected_model,
+                token_usage={
+                    'prompt_tokens': self.api_client.last_prompt_tokens,
+                    'completion_tokens': self.api_client.last_completion_tokens,
+                    'total_tokens': self.api_client.last_prompt_tokens + self.api_client.last_completion_tokens
+                }
+            )
+            
             # Display result in main thread
             self.root.after(0, lambda: self.analysis_panel.display_analysis(
                 result, prompt_type, prompt))
             self.root.after(0, lambda: self.status_var.set("Analysis complete"))
             
-            # Update token display
+            # Update token display and refresh history if visible
             self.root.after(0, self.update_token_display)
+            if not self.history_section_collapsed:
+                self.root.after(0, self.refresh_chat_history_display)
             
         except Exception as e:
             self.root.after(0, lambda: messagebox.showerror("Error", f"Analysis failed: {e}"))
