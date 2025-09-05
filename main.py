@@ -233,16 +233,30 @@ class WorkflowAutomator:
         status_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), 
                          padx=10, pady=(0, 5))
         
-        # Status label
+        # Status label (left)
         status_label = ttk.Label(status_frame, textvariable=self.status_var,
                                 style='Secondary.TLabel')
         status_label.pack(side=tk.LEFT)
         
-        # Current model indicator
+        # Token counter (center-right)
+        self.token_var = tk.StringVar()
+        self.update_token_display()
+        token_label = ttk.Label(status_frame, textvariable=self.token_var,
+                               style='Secondary.TLabel')
+        token_label.pack(side=tk.RIGHT, padx=(0, 20))
+        
+        # Clear tokens button
+        clear_tokens_btn = ttk.Button(status_frame, text="🗑️", width=3,
+                                     command=self.clear_token_history,
+                                     style='TButton')
+        clear_tokens_btn.pack(side=tk.RIGHT, padx=(0, 5))
+        self.ui_utils.bind_hover_cursor(clear_tokens_btn)
+        
+        # Current model indicator (right)
         model_indicator = ttk.Label(status_frame, 
                                    text=f"Model: {self.api_client.get_current_model_display_name()}",
                                    style='Secondary.TLabel')
-        model_indicator.pack(side=tk.RIGHT)
+        model_indicator.pack(side=tk.RIGHT, padx=(0, 10))
         self.model_indicator = model_indicator
     
     def setup_selected_section(self, container):
@@ -331,12 +345,40 @@ class WorkflowAutomator:
         if hasattr(self, 'model_indicator'):
             self.model_indicator.config(text=f"Model: {display_name}")
         
+        # Update token display for new model
+        self.update_token_display()
+        
         # Update status to show selected model
         model_id = self.api_client.selected_model
         self.status_var.set(f"Model changed to: {display_name} ({model_id})")
         
         # Auto-clear status after 3 seconds
         self.root.after(3000, lambda: self.status_var.set("Ready"))
+    
+    def update_token_display(self):
+        """Update the token counter display"""
+        token_info = self.api_client.get_token_usage_info()
+        used = token_info['used']
+        limit = token_info['limit']
+        remaining = token_info['remaining']
+        percentage = token_info['percentage']
+        
+        # Color code based on usage percentage
+        if percentage >= 90:
+            indicator = "🔴"  # Red - almost full
+        elif percentage >= 70:
+            indicator = "🟡"  # Yellow - getting full
+        else:
+            indicator = "🟢"  # Green - plenty of space
+        
+        self.token_var.set(f"{indicator} Tokens: {used:,}/{limit:,} ({remaining:,} left)")
+    
+    def clear_token_history(self):
+        """Clear token usage history"""
+        self.api_client.reset_session_tokens()
+        self.update_token_display()
+        self.status_var.set("Token history cleared")
+        self.root.after(2000, lambda: self.status_var.set("Ready"))
     
     def browse_project(self):
         """Browse for project directory"""
@@ -700,6 +742,9 @@ class WorkflowAutomator:
             self.root.after(0, lambda: self.analysis_panel.display_analysis(
                 result, prompt_type, prompt))
             self.root.after(0, lambda: self.status_var.set("Analysis complete"))
+            
+            # Update token display
+            self.root.after(0, self.update_token_display)
             
         except Exception as e:
             self.root.after(0, lambda: messagebox.showerror("Error", f"Analysis failed: {e}"))

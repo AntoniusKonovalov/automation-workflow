@@ -20,7 +20,7 @@ class APIClient:
         self.preferred_api = self.determine_preferred_api()
         self.selected_model = "gpt-5"  # Default model
         
-        # Available OpenAI models
+        # Available OpenAI models with context limits
         self.available_models = {
             "GPT-5 (Latest)": "gpt-5",
             "GPT-5 Mini": "gpt-5-mini", 
@@ -28,6 +28,22 @@ class APIClient:
             "GPT-4o": "gpt-4o",
             "GPT-4o Mini": "gpt-4o-mini"
         }
+        
+        # Model context limits (tokens)
+        self.model_limits = {
+            "gpt-5": 200000,        # GPT-5 context window
+            "gpt-5-mini": 128000,   # GPT-5 Mini context
+            "gpt-5-nano": 128000,   # GPT-5 Nano context
+            "gpt-4.1": 128000,      # GPT-4.1 context
+            "gpt-4o": 128000,       # GPT-4o context
+            "gpt-4o-mini": 128000   # GPT-4o Mini context
+        }
+        
+        # Token usage tracking
+        self.total_tokens_used = 0
+        self.session_tokens = 0
+        self.last_prompt_tokens = 0
+        self.last_completion_tokens = 0
     
     def determine_preferred_api(self):
         """Determine which API to use based on available keys"""
@@ -51,6 +67,37 @@ class APIClient:
             if model_id == self.selected_model:
                 return display_name
         return f"Custom: {self.selected_model}"
+    
+    def get_context_limit(self):
+        """Get context limit for current model"""
+        return self.model_limits.get(self.selected_model, 128000)
+    
+    def get_remaining_tokens(self):
+        """Calculate remaining tokens in context window"""
+        limit = self.get_context_limit()
+        return max(0, limit - self.session_tokens)
+    
+    def get_token_usage_info(self):
+        """Get formatted token usage information"""
+        limit = self.get_context_limit()
+        used = self.session_tokens
+        remaining = self.get_remaining_tokens()
+        percentage = (used / limit) * 100 if limit > 0 else 0
+        
+        return {
+            'used': used,
+            'limit': limit, 
+            'remaining': remaining,
+            'percentage': percentage,
+            'last_prompt': self.last_prompt_tokens,
+            'last_completion': self.last_completion_tokens
+        }
+    
+    def reset_session_tokens(self):
+        """Reset session token counter (for new conversations)"""
+        self.session_tokens = 0
+        self.last_prompt_tokens = 0 
+        self.last_completion_tokens = 0
     
     def get_api_status(self):
         """Get a user-friendly API status message"""
@@ -109,6 +156,11 @@ class APIClient:
                     reasoning={'effort': 'medium'},
                     text={'verbosity': 'medium'}
                 )
+                
+                # Track token usage for GPT-5 (if available)
+                if hasattr(response, 'usage'):
+                    self._update_token_usage(response.usage)
+                
                 return response.output_text, None
             
             # GPT-4 and older models use Chat Completions API
@@ -128,6 +180,11 @@ class APIClient:
                     max_tokens=4000,
                     temperature=0.7
                 )
+                
+                # Track token usage for GPT-4 models
+                if hasattr(response, 'usage'):
+                    self._update_token_usage(response.usage)
+                
                 return response.choices[0].message.content, None
             
         except Exception as e:
@@ -144,3 +201,14 @@ class APIClient:
                 return None, f"API Error: {error_str}\n\nGPT-5 requires the Responses API which may not be available yet.\nPlease use GPT-4o or GPT-4.1 instead."
             else:
                 return None, f"Error: {error_str}"
+    
+    def _update_token_usage(self, usage):
+        """Update token usage statistics"""
+        if hasattr(usage, 'prompt_tokens'):
+            self.last_prompt_tokens = usage.prompt_tokens
+        if hasattr(usage, 'completion_tokens'):
+            self.last_completion_tokens = usage.completion_tokens
+        if hasattr(usage, 'total_tokens'):
+            tokens_used = usage.total_tokens
+            self.total_tokens_used += tokens_used
+            self.session_tokens += tokens_used
