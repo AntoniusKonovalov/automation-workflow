@@ -20,6 +20,8 @@ class ClaudeRunner:
         self.active_sessions = {}  # Track active Claude processes
         self.session_counter = 0
         self.last_session_id = None  # Store session ID for context continuity
+        self.session_file = Path.home() / '.claude_workflow_sessions.json'
+        self.load_session_data()
         
     def execute_claude_prompt(self, prompt_text, working_directory=None, timeout=300, enable_editing=True, resume_session_id=None, allowed_tools=None):
         """
@@ -121,14 +123,33 @@ class ClaudeRunner:
                     # Try to parse JSON output and extract session_id
                     try:
                         json_output = json.loads(output)
+                        
+                        # Check for error responses
+                        if json_output.get('is_error', False):
+                            error_msg = json_output.get('error_message', 'Unknown error from Claude')
+                            print(f"DEBUG: Claude returned error: {error_msg}")
+                            return False, "", error_msg
+                        
                         # Store session_id if present for future context
                         if 'session_id' in json_output:
                             self.last_session_id = json_output['session_id']
                             print(f"DEBUG: Stored session_id: {self.last_session_id}")
+                            # Save to disk for persistence
+                            self.save_session_data()
+                        
+                        # Handle permission denials
+                        if 'permission_denials' in json_output and json_output['permission_denials']:
+                            denials = json_output['permission_denials']
+                            print(f"DEBUG: Permission denials: {denials}")
                         
                         # Return the actual response text
                         if 'result' in json_output:
-                            return True, json_output['result'], ""
+                            result_text = json_output['result']
+                            # Handle empty results
+                            if not result_text or result_text.strip() == "":
+                                print("DEBUG: Empty result from Claude, likely file edits were made")
+                                result_text = "Claude completed the task. Check your files for changes."
+                            return True, result_text, ""
                         elif 'message' in json_output:
                             # Sometimes the response is in 'message' field
                             return True, json_output['message'], ""
@@ -304,3 +325,24 @@ class ClaudeRunner:
             # Clean up any temporary files or processes
             del self.active_sessions[session_id]
             print(f"DEBUG: Cleaned up Claude session {session_id}")
+    
+    def load_session_data(self):
+        """Load saved session data from disk"""
+        try:
+            if self.session_file.exists():
+                with open(self.session_file, 'r') as f:
+                    data = json.load(f)
+                    self.last_session_id = data.get('last_session_id')
+                    print(f"DEBUG: Loaded session ID from disk: {self.last_session_id}")
+        except Exception as e:
+            print(f"DEBUG: Could not load session data: {e}")
+    
+    def save_session_data(self):
+        """Save session data to disk for persistence"""
+        try:
+            data = {'last_session_id': self.last_session_id}
+            with open(self.session_file, 'w') as f:
+                json.dump(data, f)
+                print(f"DEBUG: Saved session ID to disk: {self.last_session_id}")
+        except Exception as e:
+            print(f"DEBUG: Could not save session data: {e}")
