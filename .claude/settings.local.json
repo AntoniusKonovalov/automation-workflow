@@ -1,6 +1,13 @@
 {
   "permissions": {
     "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "MultiEdit",
+      "Bash(git:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
       "Bash(python:*)",
       "Bash(dir:*)",
       "Bash(pip install:*)",
@@ -13,9 +20,20 @@
       "WebFetch(domain:chat.openai.com)",
       "WebFetch(domain:chatgpt.com)",
       "Bash(powershell:*)",
-      "Read(/C:\\Users\\oshry\\Desktop\\automation-workflow/**)"
+      "Read(/C:\\Users\\oshry\\Desktop\\automation-workflow/**)",
+      "Bash(where claude)",
+      "Bash(claude --version)",
+      "Bash(python -m py_compile:*)",
+      "Bash(claude -p \"Create a simple test.txt file with ''Hello World''\" --continue --permission-mode acceptEdits --output-format json)",
+      "Bash(claude -p --continue \"just say hello\" --output-format json)"
     ],
-    "deny": [],
-    "ask": []
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(**/.git/config)"
+    ],
+    "ask": [],
+    "defaultMode": "acceptEdits"
   }
 }

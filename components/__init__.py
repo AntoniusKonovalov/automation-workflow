@@ -8,6 +8,7 @@ from .file_manager import FileManager, ChangedFile
 from .api_client import APIClient
 from .ui_utils import UIUtils, ToolTip, CustomScrollbar
 from .chat_history_manager import ChatHistoryManager, ChatEntry, ChatSession
+from .claude_runner import ClaudeRunner
 
 __all__ = [
     'ThemeManager',
@@ -20,5 +21,6 @@ __all__ = [
     'CustomScrollbar',
     'ChatHistoryManager',
     'ChatEntry',
-    'ChatSession'
+    'ChatSession',
+    'ClaudeRunner'
 ]

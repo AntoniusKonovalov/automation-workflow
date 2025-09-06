@@ -239,7 +239,7 @@ Instructions for the orchestrator:
         self.chat_history.clear()
         self.analysis_text.delete(1.0, tk.END)
     
-    def display_analysis(self, analysis, prompt_type="AI", prompt_text=""):
+    def display_analysis(self, analysis, prompt_type="AI", prompt_text="", model_used=None):
         """Display AI analysis result in continuous chat format"""
         current_content = self.analysis_text.get(1.0, tk.END).strip()
         
@@ -252,23 +252,43 @@ Instructions for the orchestrator:
         # Add prompt type and timestamp header
         if prompt_type == "orchestrator":
             header = f"🎭 ORCHESTRATOR PROMPT [{timestamp}]:\n"
+        elif prompt_type == "Claude Agent":
+            header = f"🤖 CLAUDE AGENT RESPONSE [{timestamp}]:\n"
+        elif prompt_type == "Error":
+            header = f"❌ ERROR [{timestamp}]:\n"
         else:
             header = f"✏️ ANALYSIS PROMPT [{timestamp}]:\n"
         
         self.analysis_text.insert(tk.END, header)
         
         # Insert the actual prompt used (truncated if too long)
-        if prompt_text:
+        # For Claude Agent responses, don't show the prompt text as it's already the response
+        if prompt_text and prompt_type not in ["Claude Agent", "Error"]:
             display_prompt = prompt_text[:200] + "..." if len(prompt_text) > 200 else prompt_text
             self.analysis_text.insert(tk.END, f"{display_prompt}\n\n")
         
         # Insert response
         response_start = self.analysis_text.index(tk.END)
-        self.analysis_text.insert(tk.END, f"🤖 RESPONSE:\n{analysis}")
+        
+        # For Claude Agent responses, don't add "RESPONSE:" prefix as it's already a response
+        if prompt_type == "Claude Agent":
+            self.analysis_text.insert(tk.END, f"{analysis}")
+        elif prompt_type == "Error":
+            self.analysis_text.insert(tk.END, f"{analysis}")
+        else:
+            # Include model name if available
+            if model_used:
+                # Get display name for the model
+                model_display = model_used.upper() if model_used else "AI"
+                self.analysis_text.insert(tk.END, f"🤖 {model_display} RESPONSE:\n{analysis}")
+            else:
+                self.analysis_text.insert(tk.END, f"🤖 RESPONSE:\n{analysis}")
+        
         response_end = self.analysis_text.index(tk.END)
         
-        # Add "Send to Agent" button after the response
-        self.add_send_to_agent_button(analysis, response_end)
+        # Add "Send to Agent" button after the response (except for errors)
+        if prompt_type != "Error":
+            self.add_send_to_agent_button(analysis, response_end)
         
         # Auto-scroll to bottom
         self.analysis_text.see(tk.END)

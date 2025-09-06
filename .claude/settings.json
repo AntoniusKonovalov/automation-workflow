@@ -1,0 +1,24 @@
+{
+  "defaultMode": "code",
+  "codeMode": {
+    "permission": {
+      "mode": "acceptEdits",
+      "allowedTools": [
+        "Read",
+        "Edit",
+        "Write",
+        "MultiEdit",
+        "Bash(git:*)",
+        "Bash(git diff:*)",
+        "Bash(git status:*)",
+        "Bash(python:*)",
+        "Bash(npm:*)",
+        "Bash(node:*)"
+      ],
+      "deniedTools": [
+        "Read(.env)",
+        "Read(secrets/**)"
+      ]
+    }
+  }
+}

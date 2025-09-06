@@ -10,7 +10,7 @@ import threading
 from pathlib import Path
 
 # Import our components
-from components import ThemeManager, GitManager, FileManager, ChangedFile, APIClient, UIUtils, CustomScrollbar, ChatHistoryManager
+from components import ThemeManager, GitManager, FileManager, ChangedFile, APIClient, UIUtils, CustomScrollbar, ChatHistoryManager, ClaudeRunner
 from components.ui import FileListPanel, AnalysisPanel
 
 
@@ -40,6 +40,7 @@ class WorkflowAutomator:
         self.api_client = APIClient()
         self.ui_utils = UIUtils()
         self.chat_history_manager = ChatHistoryManager()
+        self.claude_runner = ClaudeRunner()
         
         # Application state
         self.project_path = ""
@@ -80,8 +81,8 @@ class WorkflowAutomator:
         main_frame.columnconfigure(0, weight=0)  # Sidebar column - fixed width
         main_frame.columnconfigure(1, weight=1)  # Main content column - expandable
         main_frame.columnconfigure(2, weight=0)  # Button column - fixed width
-        main_frame.rowconfigure(2, weight=1)  # Main content row
-        main_frame.rowconfigure(3, weight=0)  # Status bar row
+        main_frame.rowconfigure(3, weight=1)  # Main content row
+        main_frame.rowconfigure(4, weight=0)  # Status bar row
         
         # Create header section
         self.setup_header(main_frame)
@@ -257,6 +258,13 @@ class WorkflowAutomator:
                              style='Secondary.TLabel')
         api_label.grid(row=1, column=1, sticky=tk.W, padx=(10, 0), pady=(5, 5))
         
+        # Claude Code CLI status
+        claude_status = "Available" if self.claude_runner.is_claude_available() else "Not Found"
+        claude_status_emoji = "🤖" if claude_status == "Available" else "⚠️"
+        claude_label = ttk.Label(main_frame, text=f"{claude_status_emoji} Claude Code: {claude_status}",
+                                style='Secondary.TLabel')
+        claude_label.grid(row=2, column=1, sticky=tk.W, padx=(10, 0), pady=(0, 5))
+        
         self.api_key_var = tk.StringVar()
         if self.api_client.preferred_api == 'anthropic':
             self.api_key_var.set("Claude API key loaded from .env")
@@ -274,7 +282,7 @@ class WorkflowAutomator:
         self.model_var = model_var
         model_menu = ttk.Menubutton(main_frame, textvariable=model_var, 
                                    width=20, style='TButton')
-        model_menu.grid(row=1, column=2, padx=(0, 10))
+        model_menu.grid(row=2, column=2, padx=(0, 10))
         self.ui_utils.bind_hover_cursor(model_menu)
         
         # Create model dropdown menu
@@ -309,7 +317,7 @@ class WorkflowAutomator:
                                         sashcursor='sb_h_double_arrow',
                                         showhandle=False,
                                         opaqueresize=True)
-        self.main_paned.grid(row=2, column=1, columnspan=2,
+        self.main_paned.grid(row=3, column=1, columnspan=2,
                             sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10), pady=(10, 0))
         
         # Create file list panel (left side - collapsible)
@@ -332,7 +340,7 @@ class WorkflowAutomator:
     def setup_sidebar(self, main_frame):
         """Create the collapsible sidebar"""
         self.toggle_frame = ttk.Frame(main_frame, style='Sidebar.TFrame')
-        self.toggle_frame.grid(row=2, column=0, sticky=(tk.N, tk.S, tk.W), padx=(10, 0), pady=(10, 0))
+        self.toggle_frame.grid(row=3, column=0, sticky=(tk.N, tk.S, tk.W), padx=(10, 0), pady=(10, 0))
         
         sidebar_content = ttk.Frame(self.toggle_frame, style='TFrame')
         sidebar_content.pack(fill=tk.BOTH, expand=True, padx=8, pady=15)
@@ -395,7 +403,7 @@ class WorkflowAutomator:
     def setup_status_bar(self, main_frame):
         """Create status bar at bottom of window"""
         status_frame = ttk.Frame(main_frame, style='TFrame')
-        status_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), 
+        status_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), 
                          padx=10, pady=(0, 5))
         
         # Status label (left)
@@ -606,7 +614,7 @@ class WorkflowAutomator:
             command=lambda: self.send_to_ai('prompt'))
         
         # Set up send to agent callback
-        self.analysis_panel.send_to_agent_callback = self.send_to_claude_terminal
+        self.analysis_panel.send_to_agent_callback = self.send_to_claude_headless
     
     # ========== EVENT HANDLERS ==========
     
@@ -1192,99 +1200,102 @@ class WorkflowAutomator:
     
     # ========== AI INTEGRATION ==========
     
-    def send_to_claude_terminal(self, prompt_text):
-        """Open PowerShell in the project directory"""
+    def send_to_claude_headless(self, prompt_text):
+        """Send prompt to Claude Code CLI headlessly and display response"""
         try:
             if not self.project_path:
                 self.status_var.set("⚠️ No project loaded")
                 return
             
-            print(f"DEBUG: Opening PowerShell in project path: {self.project_path}")
+            print(f"DEBUG: Sending prompt to headless Claude in directory: {self.project_path}")
+            print(f"DEBUG: Prompt length: {len(prompt_text)} characters")
             
-            # Update status to show we're launching PowerShell
-            self.status_var.set("🔄 Opening PowerShell...")
+            # Update status to show we're processing
+            self.status_var.set("🤖 Sending to Claude Code...")
             
-            # Use subprocess to launch PowerShell without admin privileges
-            import subprocess
+            # Check if Claude is available
+            if not self.claude_runner.is_claude_available():
+                self.status_var.set("❌ Claude Code CLI not found")
+                return
             
-            # Escape the path for PowerShell
-            escaped_path = self.project_path.replace("'", "''")
+            # Get selected files content for context
+            files_content = self.selected_text.get('1.0', tk.END).strip()
+            if files_content == "No files selected for analysis":
+                files_content = ""
             
-            # Use temporary file approach to avoid escaping issues
-            import tempfile
-            import os
+            # Create comprehensive prompt with file context
+            if files_content:
+                full_prompt = self.claude_runner.create_session_prompt(files_content, prompt_text)
+            else:
+                full_prompt = prompt_text
             
-            # Create temporary file with the prompt
-            try:
-                temp_fd, temp_path = tempfile.mkstemp(suffix='.txt', prefix='claude_prompt_')
-                
-                with os.fdopen(temp_fd, 'w', encoding='utf-8') as temp_file:
-                    temp_file.write(prompt_text)
-                
-                print(f"DEBUG: Created temp file: {temp_path}")
-                print(f"DEBUG: Prompt length: {len(prompt_text)} characters")
-                
-                # Build PowerShell command using Get-Content to read the file
-                # Use single quotes around the entire command to avoid variable expansion issues
-                temp_path_ps = temp_path.replace('\\', '/')  # Use forward slashes for paths
-                
-                # Strategy: Use existing Claude session if available, otherwise open interactive Claude
-                # Based on /bashes output, we need to work with interactive Claude sessions
-                
-                inner_cmd = f"""cd '{escaped_path}'; 
-                `$prompt = Get-Content '{temp_path_ps}' -Raw; 
-                Write-Host 'Starting Claude with your prompt...'; 
-                Write-Host 'Prompt preview:' `$prompt.Substring(0, [Math]::Min(100, `$prompt.Length)) '...'; 
-                Write-Host ''; 
-                Set-Clipboard -Value `$prompt; 
-                Write-Host 'Opening interactive Claude and auto-pasting your prompt...'; 
-                Start-Job -ScriptBlock {{
-                    Start-Sleep -Seconds 2; 
-                    Add-Type -AssemblyName System.Windows.Forms; 
-                    [System.Windows.Forms.SendKeys]::SendWait('^v{{ENTER}}'); 
-                }} | Out-Null; 
-                claude; 
-                Remove-Item '{temp_path_ps}' -ErrorAction SilentlyContinue"""
-                
-                print(f"DEBUG: Inner PowerShell command: {inner_cmd[:150]}...")
-                
-                # Launch PowerShell with the temp file approach
-                result = subprocess.run([
-                    'powershell', 
-                    '-Command', 
-                    f'Start-Process powershell -ArgumentList "-NoExit", "-Command", \"{inner_cmd}\"'
-                ], capture_output=True, text=True, timeout=10)
-                
-                print(f"DEBUG: Subprocess return code: {result.returncode}")
-                if result.stdout:
-                    print(f"DEBUG: Subprocess stdout: {result.stdout}")
-                if result.stderr:
-                    print(f"DEBUG: Subprocess stderr: {result.stderr}")
-                
-                if result.returncode == 0:
-                    print(f"DEBUG: PowerShell launch command executed successfully")
-                    self.status_var.set("✅ PowerShell opened with Claude prompt")
-                else:
-                    print(f"DEBUG: PowerShell command failed with return code: {result.returncode}")
-                    # Clean up temp file if command failed
-                    try:
-                        os.unlink(temp_path)
-                    except:
-                        pass
-                    self.status_var.set(f"❌ PowerShell failed (code {result.returncode})")
+            # Execute Claude headlessly in background thread
+            def handle_claude_response(success, result, error):
+                """Handle Claude response in main thread"""
+                if success:
+                    print(f"DEBUG: Claude response received successfully")
+                    print(f"DEBUG: Response length: {len(result)} characters")
                     
-            except Exception as temp_error:
-                print(f"DEBUG: Temp file error: {temp_error}")
-                self.status_var.set(f"❌ Temp file error: {str(temp_error)}")
-                try:
-                    if 'temp_path' in locals():
-                        os.unlink(temp_path)
-                except:
-                    pass
+                    # Display the response in the analysis panel
+                    self.root.after(0, lambda: self.analysis_panel.display_analysis(
+                        result, "Claude Agent", "Headless Claude Code execution"))
+                    
+                    # Save to chat history
+                    self.root.after(0, lambda: self.save_claude_response_to_history(
+                        prompt_text, result))
+                    
+                    self.root.after(0, lambda: self.status_var.set("✅ Claude response received"))
+                else:
+                    print(f"DEBUG: Claude execution failed: {error}")
+                    self.root.after(0, lambda: self.status_var.set(f"❌ Claude failed: {error}"))
+                    
+                    # Show error in analysis panel
+                    error_message = f"Claude Code execution failed:\n\n{error}\n\nPlease check that:\n1. Claude Code CLI is installed and in PATH\n2. You have proper authentication\n3. The prompt is valid"
+                    self.root.after(0, lambda: self.analysis_panel.display_analysis(
+                        error_message, "Error", "Claude execution error"))
+            
+            # Define allowed tools for safe file editing
+            allowed_tools = [
+                "Read",
+                "Edit", 
+                "Write",
+                "MultiEdit",
+                "Bash(git diff:*)",
+                "Bash(git status:*)"
+            ]
+            
+            # Execute asynchronously to avoid blocking UI
+            self.claude_runner.execute_claude_prompt_async(
+                prompt_text=full_prompt,
+                working_directory=self.project_path,
+                callback=handle_claude_response,
+                enable_editing=True,
+                resume_session_id=self.claude_runner.last_session_id,
+                allowed_tools=allowed_tools
+            )
             
         except Exception as e:
-            print(f"DEBUG: Error opening PowerShell: {e}")
-            self.status_var.set("❌ Failed to open PowerShell - check console")
+            print(f"DEBUG: Error in send_to_claude_headless: {e}")
+            self.status_var.set("❌ Failed to send to Claude - check console")
+    
+    def save_claude_response_to_history(self, prompt_text, response_text):
+        """Save Claude response to chat history"""
+        try:
+            if self.chat_history_manager.current_session:
+                chat_entry = self.chat_history_manager.add_chat_entry(
+                    prompt_type="claude_agent",
+                    prompt_text=prompt_text[:200] + "..." if len(prompt_text) > 200 else prompt_text,
+                    response_text=response_text,
+                    model_used="Claude Code CLI",
+                    token_usage={"total_tokens": len(response_text.split())}  # Rough token estimate
+                )
+                
+                # Update history display if visible
+                if not self.history_section_collapsed:
+                    self.refresh_chat_history_display()
+                    
+        except Exception as e:
+            print(f"DEBUG: Error saving Claude response to history: {e}")
     
     
     def send_to_ai(self, prompt_type):
@@ -1347,15 +1358,15 @@ class WorkflowAutomator:
                 }
             )
             
-            # Display result in main thread
+            # Display result in main thread with model information
             self.root.after(0, lambda: self.analysis_panel.display_analysis(
-                result, prompt_type, prompt))
+                result, prompt_type, prompt, self.api_client.selected_model))
             self.root.after(0, lambda: self.status_var.set("Analysis complete"))
             
             # If automated checkbox is checked, send result to Claude CLI automatically
             if automated:
-                print(f"DEBUG: Automation enabled - will send result to Claude")
-                self.root.after(1000, lambda: self.send_to_claude_terminal(result))  # Small delay to let UI update
+                print(f"DEBUG: Automation enabled - will send result to headless Claude")
+                self.root.after(1000, lambda: self.send_to_claude_headless(result))  # Small delay to let UI update
             else:
                 print(f"DEBUG: Automation disabled - result will not be auto-sent")
             
