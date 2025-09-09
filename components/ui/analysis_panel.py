@@ -304,6 +304,19 @@ Instructions for the orchestrator:
             # Create a frame that spans the full width for right alignment
             button_container = tk.Frame(self.analysis_text, bg=self.theme.colors['chat_ai'])
             
+            # Add checkbox for session continuation
+            continue_var = tk.BooleanVar(value=False)  # Default to fresh session
+            continue_check = tk.Checkbutton(button_container,
+                                          text="Continue session",
+                                          variable=continue_var,
+                                          bg=self.theme.colors['chat_ai'],
+                                          fg=self.theme.colors['text_secondary'],
+                                          selectcolor=self.theme.colors['chat_ai'],
+                                          activebackground=self.theme.colors['chat_ai'],
+                                          font=('Segoe UI', 9),
+                                          cursor='hand2')
+            continue_check.pack(side=tk.RIGHT, padx=(0, 10), pady=(0, 5))
+            
             # Create the button with custom styling
             send_button = tk.Button(button_container,
                                   text="Send to Agent →",
@@ -319,7 +332,7 @@ Instructions for the orchestrator:
                                   cursor='hand2',
                                   padx=15,
                                   pady=5,
-                                  command=lambda text=response_text: self.handle_send_to_agent(text))
+                                  command=lambda text=response_text, cont_var=continue_var: self.handle_send_to_agent(text, cont_var.get()))
             
             # Pack button to the right of the container
             send_button.pack(side=tk.RIGHT, padx=(0, 20), pady=(0, 5))
@@ -337,10 +350,11 @@ Instructions for the orchestrator:
             # Fallback: just add text indicating where button should be
             self.analysis_text.insert(tk.END, "\n[Send to Agent button should appear here]\n")
     
-    def handle_send_to_agent(self, response_text):
+    def handle_send_to_agent(self, response_text, continue_session=False):
         """Handle the Send to Agent button click"""
         print(f"DEBUG: Send to Agent button clicked!")
         print(f"DEBUG: Response text length: {len(response_text)}")
+        print(f"DEBUG: Continue session: {continue_session}")
         print(f"DEBUG: Callback available: {self.send_to_agent_callback is not None}")
         
         # Get main window and preserve its geometry
@@ -362,7 +376,7 @@ Instructions for the orchestrator:
         if self.send_to_agent_callback:
             try:
                 print("DEBUG: Calling send_to_agent_callback...")
-                self.send_to_agent_callback(response_text)
+                self.send_to_agent_callback(response_text, continue_session)
                 print("DEBUG: Callback completed successfully")
                 
                 # Restore original geometry if it changed

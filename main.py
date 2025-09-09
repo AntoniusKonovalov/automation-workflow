@@ -1200,11 +1200,16 @@ class WorkflowAutomator:
     
     # ========== AI INTEGRATION ==========
     
-    def send_to_claude_headless(self, prompt_text):
+    def send_to_claude_headless(self, prompt_text, continue_session=False):
         """Send prompt to Claude Code CLI headlessly and display response"""
         try:
             if not self.project_path:
                 self.status_var.set("⚠️ No project loaded")
+                return
+            
+            # Validate prompt text
+            if not prompt_text or not prompt_text.strip():
+                self.status_var.set("⚠️ Empty prompt - please provide instructions")
                 return
             
             print(f"DEBUG: Sending prompt to headless Claude in directory: {self.project_path}")
@@ -1265,12 +1270,16 @@ class WorkflowAutomator:
             ]
             
             # Execute asynchronously to avoid blocking UI
+            # Use session continuity based on user choice
+            session_id = self.claude_runner.last_session_id if continue_session else None
+            print(f"DEBUG: Continue session: {continue_session}, Session ID: {session_id}")
+            
             self.claude_runner.execute_claude_prompt_async(
                 prompt_text=full_prompt,
                 working_directory=self.project_path,
                 callback=handle_claude_response,
                 enable_editing=True,
-                resume_session_id=self.claude_runner.last_session_id,
+                resume_session_id=session_id,
                 allowed_tools=allowed_tools
             )
             

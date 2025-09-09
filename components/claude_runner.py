@@ -39,6 +39,10 @@ class ClaudeRunner:
             tuple: (success: bool, result: str, error: str)
         """
         try:
+            # Validate prompt text
+            if not prompt_text or not prompt_text.strip():
+                return False, "", "Empty prompt provided"
+            
             if not working_directory:
                 working_directory = os.getcwd()
             
@@ -141,6 +145,9 @@ class ClaudeRunner:
                         if 'permission_denials' in json_output and json_output['permission_denials']:
                             denials = json_output['permission_denials']
                             print(f"DEBUG: Permission denials: {denials}")
+                            # Add denial information to the result if significant
+                            if denials and len(denials) > 0:
+                                denial_msg = f"\n\n⚠️ Note: {len(denials)} tool(s) were denied permission."
                         
                         # Return the actual response text
                         if 'result' in json_output:
@@ -327,22 +334,41 @@ class ClaudeRunner:
             print(f"DEBUG: Cleaned up Claude session {session_id}")
     
     def load_session_data(self):
-        """Load saved session data from disk"""
+        """Load saved session data from disk with improved error handling"""
         try:
             if self.session_file.exists():
                 with open(self.session_file, 'r') as f:
                     data = json.load(f)
                     self.last_session_id = data.get('last_session_id')
                     print(f"DEBUG: Loaded session ID from disk: {self.last_session_id}")
+        except json.JSONDecodeError as e:
+            print(f"DEBUG: Invalid JSON in session file: {e}")
+            # Reset corrupted session file
+            self.last_session_id = None
+            try:
+                self.session_file.unlink()
+            except:
+                pass
+        except PermissionError as e:
+            print(f"DEBUG: Permission denied accessing session file: {e}")
         except Exception as e:
             print(f"DEBUG: Could not load session data: {e}")
     
     def save_session_data(self):
-        """Save session data to disk for persistence"""
+        """Save session data to disk with atomic write for thread safety"""
         try:
-            data = {'last_session_id': self.last_session_id}
-            with open(self.session_file, 'w') as f:
-                json.dump(data, f)
-                print(f"DEBUG: Saved session ID to disk: {self.last_session_id}")
+            data = {
+                'last_session_id': self.last_session_id,
+                'timestamp': time.time()
+            }
+            # Use atomic write to prevent corruption
+            temp_file = self.session_file.with_suffix('.tmp')
+            with open(temp_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            # Atomic rename
+            temp_file.replace(self.session_file)
+            print(f"DEBUG: Saved session ID to disk: {self.last_session_id}")
+        except PermissionError as e:
+            print(f"DEBUG: Permission denied saving session file: {e}")
         except Exception as e:
             print(f"DEBUG: Could not save session data: {e}")
